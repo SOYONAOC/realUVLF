@@ -1,4 +1,0 @@
-Warning: the ECDSA host key for 'amd1' differs from the key for the IP address '192.168.1.10'
-Offending key for IP in /home/zhuhourui/.ssh/known_hosts:3
-Matching host key in /home/zhuhourui/.ssh/known_hosts:5
-🚀 隧道已启动: localhost:1695 -> amd1
