@@ -1,0 +1,43 @@
+Fixed-Mh Muv PDF comparison across redshift
+z_values: 6, 8, 10, 12.5
+mh_values: 1e+08, 1e+09, 1e+10, 1e+11, 1e+12
+n_tracks_each: 1000000
+chunk_size: 20000
+workers: 52
+random_seed: 42
+n_bins: 180
+tail_threshold: -19.0
+ymin: 1e-06
+z=6, Mh=1e+08: mean=-5.8092, std=0.7925, p50=-6.0649, P(Muv<-19)=0.0000e+00
+z=6, Mh=1e+09: mean=-11.3614, std=0.7160, p50=-11.4327, P(Muv<-19)=0.0000e+00
+z=6, Mh=1e+10: mean=-15.9748, std=0.5474, p50=-16.0030, P(Muv<-19)=3.0000e-06
+z=6, Mh=1e+11: mean=-20.3487, std=0.4983, p50=-20.3558, P(Muv<-19)=9.9760e-01
+z=6, Mh=1e+12: mean=-23.6009, std=0.5192, p50=-23.5856, P(Muv<-19)=1.0000e+00
+z=6: png_path=/home/zhuhourui/AstroCode/mcbMAH/outputs/uvlf_fixed_mass_pdf_multi_z6.png
+z=6: pdf_path=/home/zhuhourui/AstroCode/mcbMAH/outputs/uvlf_fixed_mass_pdf_multi_z6.pdf
+
+z=8, Mh=1e+08: mean=-6.1056, std=0.8138, p50=-6.3847, P(Muv<-19)=0.0000e+00
+z=8, Mh=1e+09: mean=-11.6342, std=0.6966, p50=-11.7231, P(Muv<-19)=0.0000e+00
+z=8, Mh=1e+10: mean=-16.1982, std=0.5488, p50=-16.2491, P(Muv<-19)=4.0000e-06
+z=8, Mh=1e+11: mean=-20.5449, std=0.5040, p50=-20.5753, P(Muv<-19)=9.9906e-01
+z=8, Mh=1e+12: mean=-23.8111, std=0.5254, p50=-23.8220, P(Muv<-19)=1.0000e+00
+z=8: png_path=/home/zhuhourui/AstroCode/mcbMAH/outputs/uvlf_fixed_mass_pdf_multi_z8.png
+z=8: pdf_path=/home/zhuhourui/AstroCode/mcbMAH/outputs/uvlf_fixed_mass_pdf_multi_z8.pdf
+
+z=10, Mh=1e+08: mean=-7.2428, std=0.8768, p50=-7.4295, P(Muv<-19)=0.0000e+00
+z=10, Mh=1e+09: mean=-11.9625, std=0.6788, p50=-12.0670, P(Muv<-19)=0.0000e+00
+z=10, Mh=1e+10: mean=-16.4896, std=0.5421, p50=-16.5566, P(Muv<-19)=3.0000e-06
+z=10, Mh=1e+11: mean=-20.8147, std=0.4986, p50=-20.8619, P(Muv<-19)=9.9981e-01
+z=10, Mh=1e+12: mean=-24.0954, std=0.5224, p50=-24.1253, P(Muv<-19)=1.0000e+00
+z=10: png_path=/home/zhuhourui/AstroCode/mcbMAH/outputs/uvlf_fixed_mass_pdf_multi_z10.png
+z=10: pdf_path=/home/zhuhourui/AstroCode/mcbMAH/outputs/uvlf_fixed_mass_pdf_multi_z10.pdf
+
+z=12.5, Mh=1e+08: mean=-7.7477, std=0.8810, p50=-7.9275, P(Muv<-19)=0.0000e+00
+z=12.5, Mh=1e+09: mean=-12.3920, std=0.6683, p50=-12.5099, P(Muv<-19)=0.0000e+00
+z=12.5, Mh=1e+10: mean=-16.8910, std=0.5378, p50=-16.9736, P(Muv<-19)=5.0000e-06
+z=12.5, Mh=1e+11: mean=-21.1968, std=0.4950, p50=-21.2604, P(Muv<-19)=9.9997e-01
+z=12.5, Mh=1e+12: mean=-24.4906, std=0.5211, p50=-24.5390, P(Muv<-19)=1.0000e+00
+z=12.5: png_path=/home/zhuhourui/AstroCode/mcbMAH/outputs/uvlf_fixed_mass_pdf_multi_z12p5.png
+z=12.5: pdf_path=/home/zhuhourui/AstroCode/mcbMAH/outputs/uvlf_fixed_mass_pdf_multi_z12p5.pdf
+
+elapsed_seconds: 1290.085

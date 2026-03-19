@@ -1,0 +1,41 @@
+HMF-weighted fixed-Mh UVLF contribution diagnostic
+Contribution approximation:
+phi_k(Muv) ~= P(Muv|Mh_k,z) * [dn/dlogMh]_k * Delta(logMh)_k
+using the saved conditional PDF from uvlf_fixed_mass_pdf_fourz.
+
+z=6
+  png_path=/home/zhuhourui/AstroCode/mcbMAH/outputs/uvlf_fixed_mass_pdf_hmf_weighted_z6.png
+  pdf_path=/home/zhuhourui/AstroCode/mcbMAH/outputs/uvlf_fixed_mass_pdf_hmf_weighted_z6.pdf
+  Mh=1e+08: dn/dlogMh=2.224e+01, interval_density=2.224e+01, tail_frac=0.000
+  Mh=1e+09: dn/dlogMh=2.056e+00, interval_density=2.056e+00, tail_frac=0.000
+  Mh=1e+10: dn/dlogMh=1.498e-01, interval_density=1.498e-01, tail_frac=0.000
+  Mh=1e+11: dn/dlogMh=6.447e-03, interval_density=6.447e-03, tail_frac=0.988
+  Mh=1e+12: dn/dlogMh=7.775e-05, interval_density=7.775e-05, tail_frac=0.012
+
+z=8
+  png_path=/home/zhuhourui/AstroCode/mcbMAH/outputs/uvlf_fixed_mass_pdf_hmf_weighted_z8.png
+  pdf_path=/home/zhuhourui/AstroCode/mcbMAH/outputs/uvlf_fixed_mass_pdf_hmf_weighted_z8.pdf
+  Mh=1e+08: dn/dlogMh=1.643e+01, interval_density=1.643e+01, tail_frac=0.000
+  Mh=1e+09: dn/dlogMh=1.193e+00, interval_density=1.193e+00, tail_frac=0.000
+  Mh=1e+10: dn/dlogMh=5.714e-02, interval_density=5.714e-02, tail_frac=0.000
+  Mh=1e+11: dn/dlogMh=1.112e-03, interval_density=1.112e-03, tail_frac=0.998
+  Mh=1e+12: dn/dlogMh=2.546e-06, interval_density=2.546e-06, tail_frac=0.002
+
+z=10
+  png_path=/home/zhuhourui/AstroCode/mcbMAH/outputs/uvlf_fixed_mass_pdf_hmf_weighted_z10.png
+  pdf_path=/home/zhuhourui/AstroCode/mcbMAH/outputs/uvlf_fixed_mass_pdf_hmf_weighted_z10.pdf
+  Mh=1e+08: dn/dlogMh=1.024e+01, interval_density=1.024e+01, tail_frac=0.000
+  Mh=1e+09: dn/dlogMh=5.505e-01, interval_density=5.505e-01, tail_frac=0.000
+  Mh=1e+10: dn/dlogMh=1.558e-02, interval_density=1.558e-02, tail_frac=0.000
+  Mh=1e+11: dn/dlogMh=1.122e-04, interval_density=1.122e-04, tail_frac=0.999
+  Mh=1e+12: dn/dlogMh=3.214e-08, interval_density=3.214e-08, tail_frac=0.000
+
+z=12.5
+  png_path=/home/zhuhourui/AstroCode/mcbMAH/outputs/uvlf_fixed_mass_pdf_hmf_weighted_z12p5.png
+  pdf_path=/home/zhuhourui/AstroCode/mcbMAH/outputs/uvlf_fixed_mass_pdf_hmf_weighted_z12p5.pdf
+  Mh=1e+08: dn/dlogMh=4.564e+00, interval_density=4.564e+00, tail_frac=0.000
+  Mh=1e+09: dn/dlogMh=1.545e-01, interval_density=1.545e-01, tail_frac=0.000
+  Mh=1e+10: dn/dlogMh=1.953e-03, interval_density=1.953e-03, tail_frac=0.003
+  Mh=1e+11: dn/dlogMh=3.069e-06, interval_density=3.069e-06, tail_frac=0.997
+  Mh=1e+12: dn/dlogMh=3.638e-11, interval_density=3.638e-11, tail_frac=0.000
+

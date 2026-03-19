@@ -1,0 +1,57 @@
+\subsection{Mass accretion history}
+
+We model the halo mass accretion history (MAH) with the two-parameter form introduced by \citet{McBride2009MNRAS}. In the default normalization used for the Monte Carlo sampling,
+\begin{equation}
+    M_{\rm h}(z)=M_0(1+z)^\beta e^{-\gamma z},
+\end{equation}
+where $M_0$ is the halo mass at $z=0$. For the publication-style MAH tracks, it is more convenient to use the equivalent anchored form
+\begin{equation}
+    M_{\rm h}(z\mid z_{\rm ref},M_{\rm ref})=
+    M_{\rm ref}
+    \left(\frac{1+z}{1+z_{\rm ref}}\right)^\beta
+    e^{-\gamma (z-z_{\rm ref})},
+\end{equation}
+which enforces $M_{\rm h}(z_{\rm ref})=M_{\rm ref}$. In the figure shown below we adopt $z_{\rm ref}=6$ and $M_{\rm ref}=10^{12}\,M_\odot$.
+
+The corresponding accretion rate is
+\begin{equation}
+    \dot{M}_{\rm h}=\frac{dM_{\rm h}}{dt}
+    =\frac{dM_{\rm h}}{dz}\frac{dz}{dt},
+\end{equation}
+with
+\begin{equation}
+    \frac{dM_{\rm h}}{dz}
+    =
+    M_{\rm h}(z)\left[\frac{\beta}{1+z}-\gamma\right].
+\end{equation}
+For a flat $\Lambda$CDM cosmology,
+\begin{equation}
+    \frac{dz}{dt}=-H(z)(1+z),
+\end{equation}
+\begin{equation}
+    H(z)=H_0\sqrt{\Omega_m(1+z)^3+\Omega_\Lambda},
+\end{equation}
+so that
+\begin{equation}
+    \dot{M}_{\rm h}(z,\beta,\gamma)
+    =
+    -H(z)(1+z)M_{\rm h}(z)\left[\frac{\beta}{1+z}-\gamma\right],
+\end{equation}
+and the specific accretion rate is
+\begin{equation}
+    \frac{\dot{M}_{\rm h}}{M_{\rm h}}
+    =
+    H(z)\left[\gamma(1+z)-\beta\right].
+\end{equation}
+Throughout this work we adopt the Planck18 cosmology, with $H_0=67.4~{\rm km~s^{-1}~Mpc^{-1}}$ (equivalently $0.0689~{\rm Gyr^{-1}}$), $\Omega_m=0.315$, and $\Omega_\Lambda=0.685$.
+
+For the Monte Carlo realizations of $(\beta,\gamma)$, our fiducial sampler follows the Appendix A prescription of \citet{McBride2009MNRAS}. In the implementation used here, this distribution is treated as a mixture of a power-law branch with $\gamma=0$ and weight $0.0466$, and a two-dimensional joint component sampled in $(\beta,y')$ and mapped to $\gamma$ using the Appendix A transformation. Both components are generated with rejection sampling. For comparison, we also construct a bivariate Gaussian approximation whose mean vector and covariance matrix are estimated from a pilot sample drawn from the original Appendix A distribution.
+
+Each accepted $(\beta,\gamma)$ pair defines one MAH trajectory, from which we compute $M_{\rm h}(z)$, $\dot{M}_{\rm h}(z)$, and $\dot{M}_{\rm h}/M_{\rm h}$ at the target redshift. We discard non-finite realizations, cases with $M_{\rm h}(z)\le 0$, samples with $\gamma<0$, and extreme draws outside the range $-10.5<\beta<12.5$. For the anchored MAH figure, we further terminate each track once it falls below the minimum virial mass $M_{\rm min}(z)$ returned by \texttt{massfunc.M\_vir} for $\mu=0.61$ and $T_{\rm vir}=10^4~{\rm K}$. We summarize the resulting distributions using their medians and percentile ranges.
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=\linewidth]{outputs/mah_z6_Mh1e12_to_z50_mmin.pdf}
+    \caption{Monte Carlo realizations of anchored halo MAHs drawn from the McBride Appendix A distribution. All tracks are normalized to $M_{\rm h}(z=6)=10^{12}\,M_\odot$. The gray curves show individual MAH realizations, while the blue dashed curve marks the minimum virial mass $M_{\rm min}(z)$. Each trajectory is truncated once it drops below this cooling threshold.}
+    \label{fig:mah_z6_anchor_mmin}
+\end{figure}

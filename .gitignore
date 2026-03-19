@@ -1,0 +1,23 @@
+.venv/
+__pycache__/
+*.pyc
+
+outputs/
+jupyter.err
+kernel/jupyter.err
+
+slides/*.aux
+slides/*.log
+slides/*.nav
+slides/*.out
+slides/*.snm
+slides/*.toc
+slides/*.fls
+slides/*.fdb_latexmk
+slides/*.synctex.gz
+
+*.egg-info/
+
+# Large raw datasets: keep outside the initial Git history.
+spectra-bin_byrne23/*.dat
+obsdata/universemachine_dr1/*.tar.gz

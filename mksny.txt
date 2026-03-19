@@ -1,0 +1,8 @@
+Launching Jupyter Notebook on amd1 at port 1695
+Project root: /home/zhuhourui/AstroCode/realUVLF
+Python: /home/zhuhourui/AstroCode/realUVLF/.venv/bin/python
+Jupyter: /home/zhuhourui/AstroCode/realUVLF/.venv/bin/jupyter
+To connect from your local machine, run:
+  ssh -L 1695:amd1:1695 amd1
+Then open in browser: http://localhost:1695/?token=Ee7Jlwkt1hCgGnW5UOPMpRKOyJt_S7z4
+Token: Ee7Jlwkt1hCgGnW5UOPMpRKOyJt_S7z4

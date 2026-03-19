@@ -1,0 +1,31 @@
+n_tracks: 1000
+workers: 85
+z_values: [6.0, 8.0, 10.0, 12.5]
+log_mass_values: [8.0, 8.5, 9.0, 9.5, 10.0, 10.5, 11.0, 11.5, 12.0]
+ssp_file: spectra-bin_byrne23/spectra-bin-imf135_300.BASEL.z001.a+00.dat
+KUV_SSP_LONG: 6.100000e-29
+elapsed_seconds: 4.938217
+tsv_path: /home/zhuhourui/AstroCode/mcbMAH/data_save/ssp_vs_instant_ssplong_grid.tsv
+png_path: /home/zhuhourui/AstroCode/mcbMAH/outputs/ssp_vs_instant_ssplong_grid.png
+
+[z=6]
+logMh=8.0, mean=0.994140, median=0.987064, p16=0.826451, p84=1.241421, n_valid=342
+logMh=8.5, mean=1.436671, median=1.385150, p16=1.300710, p84=1.498749, n_valid=1000
+logMh=9.0, mean=1.369151, median=1.351546, p16=1.284893, p84=1.442556, n_valid=1000
+logMh=9.5, mean=1.331552, median=1.325631, p16=1.263314, p84=1.402030, n_valid=1000
+logMh=10.0, mean=1.305871, median=1.304532, p16=1.243885, p84=1.368267, n_valid=1000
+logMh=10.5, mean=1.283614, median=1.284235, p16=1.224559, p84=1.342656, n_valid=1000
+logMh=11.0, mean=1.269470, median=1.270754, p16=1.216020, p84=1.325478, n_valid=1000
+logMh=11.5, mean=1.271644, median=1.275444, p16=1.218867, p84=1.327694, n_valid=1000
+logMh=12.0, mean=1.299049, median=1.305286, p16=1.246527, p84=1.355184, n_valid=1000
+
+[z=12.5]
+logMh=8.0, mean=1.026206, median=0.737447, p16=0.578059, p84=0.920577, n_valid=1000
+logMh=8.5, mean=0.731337, median=0.696333, p16=0.580451, p84=0.853597, n_valid=1000
+logMh=9.0, mean=0.672018, median=0.650113, p16=0.553990, p84=0.803048, n_valid=1000
+logMh=9.5, mean=0.635987, median=0.615908, p16=0.527123, p84=0.755116, n_valid=1000
+logMh=10.0, mean=0.603706, median=0.590481, p16=0.502684, p84=0.715204, n_valid=1000
+logMh=10.5, mean=0.575161, median=0.564187, p16=0.481104, p84=0.675182, n_valid=1000
+logMh=11.0, mean=0.558032, median=0.548292, p16=0.469964, p84=0.656830, n_valid=1000
+logMh=11.5, mean=0.561628, median=0.556067, p16=0.476261, p84=0.651250, n_valid=1000
+logMh=12.0, mean=0.597913, median=0.593457, p16=0.508655, p84=0.688722, n_valid=1000

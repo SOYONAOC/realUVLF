@@ -1,0 +1,6 @@
+Mh_final = 1e10 Msun
+Comparison at z_obs using median mdot from Monte Carlo MAH tracks vs McBride+09 median growth-rate formula.
+z=6: mdot_med=1.797095e+01, mdot_formula=1.874518e+01, ratio=0.958697; sfr_med=5.033085e-02, sfr_formula=5.249923e-02, ratio=0.958697
+z=8: mdot_med=3.421424e+01, mdot_formula=3.558559e+01, ratio=0.961463; sfr_med=9.582311e-02, sfr_formula=9.966381e-02, ratio=0.961463
+z=10: mdot_med=5.742932e+01, mdot_formula=5.926354e+01, ratio=0.969050; sfr_med=1.608411e-01, sfr_formula=1.659781e-01, ratio=0.969050
+z=12.5: mdot_med=9.694675e+01, mdot_formula=9.959234e+01, ratio=0.973436; sfr_med=2.715167e-01, sfr_formula=2.789262e-01, ratio=0.973436

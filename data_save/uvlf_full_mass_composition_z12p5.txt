@@ -1,0 +1,20 @@
+Full UVLF halo-mass composition
+z_obs: 12.5
+N_mass: 3000
+n_tracks: 1000
+pipeline_workers: 72
+random_seed: 42
+logmh_edges: 9, 10, 11, 12, 13, 14, 15, 16
+bin_width: 0.5
+tail_threshold: -19.0
+png_path: /home/zhuhourui/AstroCode/mcbMAH/outputs/uvlf_full_mass_composition_z12p5.png
+pdf_path: /home/zhuhourui/AstroCode/mcbMAH/outputs/uvlf_full_mass_composition_z12p5.pdf
+progress_path: /home/zhuhourui/AstroCode/mcbMAH/outputs/uvlf_full_mass_composition_z12p5_progress.txt
+Bright-end fractional composition (weighted):
+  $10^{9}\!-\!10^{10}\,M_\odot$: 0.0000
+  $10^{10}\!-\!10^{11}\,M_\odot$: 0.9867
+  $10^{11}\!-\!10^{12}\,M_\odot$: 0.0133
+  $10^{12}\!-\!10^{13}\,M_\odot$: 0.0000
+  $10^{13}\!-\!10^{14}\,M_\odot$: 0.0000
+  $10^{14}\!-\!10^{15}\,M_\odot$: 0.0000
+  $10^{15}\!-\!10^{16}\,M_\odot$: 0.0000

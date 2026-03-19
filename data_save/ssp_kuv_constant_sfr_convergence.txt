@@ -1,0 +1,24 @@
+ssp_file: spectra-bin_byrne23/spectra-bin-imf135_300.BASEL.z001.a+00.dat
+n_time: 4000
+elapsed_seconds: 0.007360
+KUV_reference: 6.100000e-29
+tsv_path: /home/zhuhourui/AstroCode/mcbMAH/data_save/ssp_kuv_constant_sfr_convergence.tsv
+png_path: /home/zhuhourui/AstroCode/mcbMAH/outputs/ssp_kuv_constant_sfr_convergence.png
+
+T=1.0 Myr, LUV=9.088128e+26, KUV=1.100337e-27, KUV/reference=18.038306
+T=3.0 Myr, LUV=3.325065e+27, KUV=3.007460e-28, KUV/reference=4.930262
+T=5.0 Myr, LUV=5.069966e+27, KUV=1.972400e-28, KUV/reference=3.233442
+T=10.0 Myr, LUV=7.231520e+27, KUV=1.382835e-28, KUV/reference=2.266943
+T=20.0 Myr, LUV=9.080547e+27, KUV=1.101255e-28, KUV/reference=1.805336
+T=30.0 Myr, LUV=1.009524e+28, KUV=9.905654e-29, KUV/reference=1.623878
+T=50.0 Myr, LUV=1.133331e+28, KUV=8.823551e-29, KUV/reference=1.446484
+T=80.0 Myr, LUV=1.239277e+28, KUV=8.069221e-29, KUV/reference=1.322823
+T=100.0 Myr, LUV=1.287534e+28, KUV=7.766788e-29, KUV/reference=1.273244
+T=150.0 Myr, LUV=1.367177e+28, KUV=7.314344e-29, KUV/reference=1.199073
+T=200.0 Myr, LUV=1.416704e+28, KUV=7.058640e-29, KUV/reference=1.157154
+T=300.0 Myr, LUV=1.475582e+28, KUV=6.776988e-29, KUV/reference=1.110982
+T=500.0 Myr, LUV=1.533948e+28, KUV=6.519125e-29, KUV/reference=1.068709
+T=800.0 Myr, LUV=1.580248e+28, KUV=6.328120e-29, KUV/reference=1.037397
+T=1000.0 Myr, LUV=1.601273e+28, KUV=6.245030e-29, KUV/reference=1.023775
+T=1500.0 Myr, LUV=1.630875e+28, KUV=6.131678e-29, KUV/reference=1.005193
+T=2000.0 Myr, LUV=1.643633e+28, KUV=6.084085e-29, KUV/reference=0.997391

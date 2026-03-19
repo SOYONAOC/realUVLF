@@ -1,0 +1,24 @@
+Full UVLF halo-mass composition
+quantity: dust
+z_obs: 12.5
+N_mass: 3000
+n_tracks: 1000
+pipeline_workers: 79
+random_seed: 42
+logmh_edges: 8, 8.5, 9, 9.5, 10, 10.5, 11, 11.5, 12, 12.5
+bin_width: 0.5
+tail_threshold: -19.0
+x_range: [-25.0, -15.0]
+png_path: /home/zhuhourui/AstroCode/mcbMAH/outputs/uvlf_full_mass_composition_z12p5_dust_m25_m15.png
+pdf_path: /home/zhuhourui/AstroCode/mcbMAH/outputs/uvlf_full_mass_composition_z12p5_dust_m25_m15.pdf
+progress_path: /home/zhuhourui/AstroCode/mcbMAH/outputs/uvlf_full_mass_composition_z12p5_progress.txt
+Bright-end fractional composition (weighted):
+  $10^{8}\!-\!10^{8.5}\,M_\odot$: 0.0000
+  $10^{8.5}\!-\!10^{9}\,M_\odot$: 0.0000
+  $10^{9}\!-\!10^{9.5}\,M_\odot$: 0.0000
+  $10^{9.5}\!-\!10^{10}\,M_\odot$: 0.0000
+  $10^{10}\!-\!10^{10.5}\,M_\odot$: 0.4263
+  $10^{10.5}\!-\!10^{11}\,M_\odot$: 0.5607
+  $10^{11}\!-\!10^{11.5}\,M_\odot$: 0.0129
+  $10^{11.5}\!-\!10^{12}\,M_\odot$: 0.0001
+  $10^{12}\!-\!10^{12.5}\,M_\odot$: 0.0000
