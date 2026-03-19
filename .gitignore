@@ -3,6 +3,8 @@ __pycache__/
 *.pyc
 
 outputs/
+data_save/
+cosm/
 jupyter.err
 kernel/jupyter.err
 
