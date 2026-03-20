@@ -224,6 +224,7 @@ def main() -> None:
     parser.add_argument("--n-grid", type=int, default=240)
     parser.add_argument("--sampler", type=str, default="mcbride")
     parser.add_argument("--enable-time-delay", action="store_true")
+    parser.add_argument("--dust-only", action="store_true")
     args = parser.parse_args()
 
     z_obs = float(args.z_obs)
@@ -232,6 +233,7 @@ def main() -> None:
     outputs_dir.mkdir(parents=True, exist_ok=True)
 
     plot_path = outputs_dir / f"uvlf_compare_no_puv_z{z_tag}.png"
+    plot_pdf_path = outputs_dir / f"uvlf_compare_no_puv_z{z_tag}.pdf"
     txt_path = outputs_dir / f"uvlf_compare_no_puv_z{z_tag}.txt"
     progress_path = outputs_dir / f"uvlf_compare_no_puv_z{z_tag}_progress.txt"
 
@@ -329,29 +331,18 @@ def main() -> None:
         muv_obs=dust_grid,
         clip_to_bounds=False,
     )
-    zhang25_model = Zhang25DustBaseline(z_obs, sfr_params)
-    zhang25_phi = zhang25_model.uvlf_dust(dust_grid, z_obs)
-    zhang25_intrinsic_phi = zhang25_model.uvlf_intrinsic(ssp_intrinsic_muv, z_obs)
-
     dust_muv = np.asarray(dust_result["Muv_obs"], dtype=float)
     dust_phi = np.asarray(dust_result["phi_obs"], dtype=float)
     inst_phi = np.asarray(inst_dust_result["phi_obs"], dtype=float)
-    zhang25_phi = np.asarray(zhang25_phi, dtype=float)
 
-    fig, axes = plt.subplots(1, 2, figsize=(12.8, 4.9), constrained_layout=True)
-    ax = axes[0]
+    if args.dust_only:
+        fig, ax = plt.subplots(1, 1, figsize=(6.8, 4.9), constrained_layout=True)
+        axes = [ax]
+    else:
+        fig, axes = plt.subplots(1, 2, figsize=(12.8, 4.9), constrained_layout=True)
+        ax = axes[0]
     finite_dust = np.isfinite(dust_phi) & (dust_phi > 0.0)
     finite_inst = np.isfinite(inst_phi) & (inst_phi > 0.0)
-    finite_zhang = np.isfinite(zhang25_phi) & (zhang25_phi > 0.0)
-
-    ax.plot(
-        dust_grid[finite_zhang],
-        zhang25_phi[finite_zhang],
-        color="#111111",
-        linewidth=2.1,
-        label="Zhang+25",
-        zorder=2,
-    )
     ax.plot(
         dust_muv[finite_dust],
         dust_phi[finite_dust],
@@ -416,63 +407,56 @@ def main() -> None:
     )
     ax.legend(frameon=False, fontsize=11.2, loc="lower left")
 
-    ax_intr = axes[1]
-    finite_ssp_intrinsic = np.isfinite(ssp_intrinsic_phi) & (ssp_intrinsic_phi > 0.0)
-    finite_inst_intrinsic = np.isfinite(inst_intrinsic_phi) & (inst_intrinsic_phi > 0.0)
-    finite_zhang_intrinsic = np.isfinite(zhang25_intrinsic_phi) & (zhang25_intrinsic_phi > 0.0)
+    if not args.dust_only:
+        ax_intr = axes[1]
+        finite_ssp_intrinsic = np.isfinite(ssp_intrinsic_phi) & (ssp_intrinsic_phi > 0.0)
+        finite_inst_intrinsic = np.isfinite(inst_intrinsic_phi) & (inst_intrinsic_phi > 0.0)
+        ax_intr.plot(
+            ssp_intrinsic_muv[finite_ssp_intrinsic],
+            ssp_intrinsic_phi[finite_ssp_intrinsic],
+            color="#C0392B",
+            linewidth=2.1,
+            label="Our model",
+            zorder=3,
+        )
+        ax_intr.plot(
+            inst_intrinsic_muv[finite_inst_intrinsic],
+            inst_intrinsic_phi[finite_inst_intrinsic],
+            color="#2E86DE",
+            linestyle="--",
+            linewidth=2.0,
+            label="Instant",
+            zorder=1,
+        )
+        ax_intr.set_yscale("log")
+        ax_intr.set_xlim(MUV_MIN, MUV_MAX)
+        ax_intr.set_ylim(1.0e-8, 1.0)
+        ax_intr.set_xlabel(r"$M_{\rm UV}^{\rm int}$")
+        ax_intr.set_ylabel(r"$\phi(M_{\rm UV})$")
+        ax_intr.set_title(f"Intrinsic UVLF at z = {z_obs:g}")
+        ax_intr.tick_params(direction="in", top=True, right=True)
+        ax_intr.minorticks_on()
+        ax_intr.text(
+            0.03,
+            0.97,
+            "\n".join(
+                [
+                    rf"$\epsilon_0 = {sfr_params['epsilon_0']:.3f}$",
+                    rf"$M_c = 10^{{{np.log10(sfr_params['characteristic_mass']):.2f}}}\,M_\odot$",
+                    rf"$\beta_\star = {sfr_params['beta_star']:.2f}$",
+                    rf"$\gamma_\star = {sfr_params['gamma_star']:.2f}$",
+                ]
+            ),
+            transform=ax_intr.transAxes,
+            va="top",
+            ha="left",
+            fontsize=8.0,
+            bbox={"boxstyle": "round,pad=0.28", "facecolor": "white", "edgecolor": "0.75", "alpha": 0.92},
+        )
+        ax_intr.legend(frameon=False, fontsize=11.2, loc="lower left")
 
-    ax_intr.plot(
-        ssp_intrinsic_muv[finite_zhang_intrinsic],
-        zhang25_intrinsic_phi[finite_zhang_intrinsic],
-        color="#111111",
-        linewidth=2.1,
-        label="Zhang+25",
-        zorder=2,
-    )
-    ax_intr.plot(
-        ssp_intrinsic_muv[finite_ssp_intrinsic],
-        ssp_intrinsic_phi[finite_ssp_intrinsic],
-        color="#C0392B",
-        linewidth=2.1,
-        label="Our model",
-        zorder=3,
-    )
-    ax_intr.plot(
-        inst_intrinsic_muv[finite_inst_intrinsic],
-        inst_intrinsic_phi[finite_inst_intrinsic],
-        color="#2E86DE",
-        linestyle="--",
-        linewidth=2.0,
-        label="Instant",
-        zorder=1,
-    )
-    ax_intr.set_yscale("log")
-    ax_intr.set_xlim(MUV_MIN, MUV_MAX)
-    ax_intr.set_ylim(1.0e-8, 1.0)
-    ax_intr.set_xlabel(r"$M_{\rm UV}^{\rm int}$")
-    ax_intr.set_ylabel(r"$\phi(M_{\rm UV})$")
-    ax_intr.set_title(f"Intrinsic UVLF at z = {z_obs:g}")
-    ax_intr.tick_params(direction="in", top=True, right=True)
-    ax_intr.minorticks_on()
-    ax_intr.text(
-        0.03,
-        0.97,
-        "\n".join(
-            [
-                rf"$\epsilon_0 = {sfr_params['epsilon_0']:.3f}$",
-                rf"$M_c = 10^{{{np.log10(sfr_params['characteristic_mass']):.2f}}}\,M_\odot$",
-                rf"$\beta_\star = {sfr_params['beta_star']:.2f}$",
-                rf"$\gamma_\star = {sfr_params['gamma_star']:.2f}$",
-            ]
-        ),
-        transform=ax_intr.transAxes,
-        va="top",
-        ha="left",
-        fontsize=8.0,
-        bbox={"boxstyle": "round,pad=0.28", "facecolor": "white", "edgecolor": "0.75", "alpha": 0.92},
-    )
-    ax_intr.legend(frameon=False, fontsize=11.2, loc="lower left")
-    fig.savefig(plot_path, dpi=250, bbox_inches="tight")
+    fig.savefig(plot_pdf_path, bbox_inches="tight")
+    fig.savefig(plot_path, dpi=500, bbox_inches="tight")
     plt.close(fig)
 
     elapsed = time.perf_counter() - t0
@@ -486,8 +470,9 @@ def main() -> None:
                 f"workers: {args.workers}",
                 f"random_seed: {args.random_seed}",
                 f"KUV_SSP_LONG: {KUV_SSP_LONG}",
-                "legend_lines: Zhang+25 / Our model / Instant",
-                "panels: left=dusty, right=intrinsic",
+                "legend_lines: Our model / Instant",
+                f"dust_only: {args.dust_only}",
+                "panels: left=dusty, right=intrinsic" if not args.dust_only else "panels: dusty only",
                 f"epsilon_0: {sfr_params['epsilon_0']}",
                 f"characteristic_mass: {sfr_params['characteristic_mass']}",
                 f"beta_star: {sfr_params['beta_star']}",
@@ -495,6 +480,7 @@ def main() -> None:
                 f"sampling_seconds: {elapsed}",
                 f"mean_per_mass_seconds: {float(np.mean(per_mass_seconds))}",
                 f"plot_path: {plot_path.resolve()}",
+                f"plot_pdf_path: {plot_pdf_path.resolve()}",
                 f"progress_path: {progress_path.resolve()}",
             ]
         )
