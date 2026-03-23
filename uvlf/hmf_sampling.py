@@ -58,7 +58,7 @@ def _resolve_bin_edges(values: np.ndarray, quantity: str, bins: int | np.ndarray
     return np.linspace(np.min(finite), np.max(finite), bins + 1)
 
 
-def _write_progress(progress_path: Path, completed: int, total: int, elapsed_seconds: float) -> None:
+def _format_progress(completed: int, total: int, elapsed_seconds: float) -> str:
     fraction = completed / total
     filled = int(round(30 * fraction))
     bar = "#" * filled + "-" * (30 - filled)
@@ -66,13 +66,18 @@ def _write_progress(progress_path: Path, completed: int, total: int, elapsed_sec
     remaining = total - completed
     eta_seconds = remaining / rate if rate > 0.0 else float("inf")
     eta_text = f"{eta_seconds:.1f}s" if np.isfinite(eta_seconds) else "inf"
-    text = (
+    return (
         f"[{bar}] {completed}/{total} "
         f"({fraction * 100.0:.2f}%) "
         f"elapsed={elapsed_seconds:.1f}s "
         f"eta={eta_text}\n"
     )
+
+
+def _write_progress(progress_path: Path, completed: int, total: int, elapsed_seconds: float) -> str:
+    text = _format_progress(completed=completed, total=total, elapsed_seconds=elapsed_seconds)
     progress_path.write_text(text, encoding="utf-8")
+    return text
 
 
 def _run_single_mass_sample(
@@ -144,6 +149,7 @@ def sample_uvlf_from_hmf(
     pipeline_workers: int | None = None,
     ssp_file: str = DEFAULT_SSP_FILE,
     progress_path: str | Path | None = None,
+    print_progress: bool = False,
     sfr_model_parameters: SFRModelParameters = DEFAULT_SFR_MODEL_PARAMETERS,
 ) -> UVLFSamplingResult:
     """Sample a UVLF by Monte Carlo integration over the ST halo mass function."""
@@ -159,7 +165,9 @@ def sample_uvlf_from_hmf(
     progress_file = None if progress_path is None else Path(progress_path).expanduser().resolve()
     if progress_file is not None:
         progress_file.parent.mkdir(parents=True, exist_ok=True)
-        _write_progress(progress_file, completed=0, total=N_mass, elapsed_seconds=0.0)
+        progress_text = _write_progress(progress_file, completed=0, total=N_mass, elapsed_seconds=0.0)
+        if print_progress:
+            print(progress_text.strip(), flush=True)
     rng = np.random.default_rng(random_seed)
     hmf = Mass_func()
     hmf.sigma2_interpolation_set()
@@ -222,7 +230,14 @@ def sample_uvlf_from_hmf(
 
             completed += 1
             if progress_file is not None and (completed == N_mass or completed % progress_stride == 0):
-                _write_progress(progress_file, completed=completed, total=N_mass, elapsed_seconds=time.perf_counter() - t0)
+                progress_text = _write_progress(
+                    progress_file,
+                    completed=completed,
+                    total=N_mass,
+                    elapsed_seconds=time.perf_counter() - t0,
+                )
+                if print_progress:
+                    print(progress_text.strip(), flush=True)
     else:
         completed = 0
         with ProcessPoolExecutor(max_workers=max(1, pipeline_workers)) as executor:
@@ -245,7 +260,14 @@ def sample_uvlf_from_hmf(
 
                 completed += 1
                 if progress_file is not None and (completed == N_mass or completed % progress_stride == 0):
-                    _write_progress(progress_file, completed=completed, total=N_mass, elapsed_seconds=time.perf_counter() - t0)
+                    progress_text = _write_progress(
+                        progress_file,
+                        completed=completed,
+                        total=N_mass,
+                        elapsed_seconds=time.perf_counter() - t0,
+                    )
+                    if print_progress:
+                        print(progress_text.strip(), flush=True)
 
     if quantity == "luminosity":
         histogram_values = sample_luminosity

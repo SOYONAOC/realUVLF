@@ -15,7 +15,8 @@ EPSILON_0 = 0.12
 CHARACTERISTIC_MASS = 10.0**11.7
 BETA_STAR = 0.66
 GAMMA_STAR = 0.65
-EXTENDED_BURST_KAPPA = 1.0
+EXTENDED_BURST_KAPPA = 0.1
+EXTENDED_BURST_LOOKBACK_MAX_MYR = 100.0
 
 
 @dataclass(frozen=True)
@@ -60,15 +61,16 @@ def _extended_burst_kernel(delta_t_gyr: np.ndarray, td_gyr: float, kappa: float 
     return kernel
 
 
-def _compute_extended_burst_mdot(
+def _compute_extended_burst_convolution(
     t_gyr: np.ndarray,
-    mdot: np.ndarray,
+    source_values: np.ndarray,
     active: np.ndarray,
     boundaries: np.ndarray,
     kappa: float,
     td_burst: np.ndarray,
+    max_lookback_gyr: float,
 ) -> np.ndarray:
-    mdot_burst = np.zeros_like(mdot, dtype=float)
+    convolved = np.zeros_like(source_values, dtype=float)
     for start, end in zip(boundaries[:-1], boundaries[1:], strict=True):
         active_group = np.asarray(active[start:end], dtype=bool)
         if not np.any(active_group):
@@ -80,7 +82,7 @@ def _compute_extended_burst_mdot(
             continue
 
         t_group = np.asarray(t_gyr[first:end], dtype=float)
-        mdot_group = np.asarray(mdot[first:end], dtype=float)
+        source_group = np.asarray(source_values[first:end], dtype=float)
         active_slice = np.asarray(active[first:end], dtype=bool)
 
         for local_i in range(t_group.size):
@@ -88,14 +90,75 @@ def _compute_extended_burst_mdot(
                 continue
             t_now = float(t_group[local_i])
             t_src = t_group[: local_i + 1]
-            mdot_src = mdot_group[: local_i + 1]
-            valid = np.isfinite(t_src) & np.isfinite(mdot_src)
+            source_src = source_group[: local_i + 1]
+            valid = np.isfinite(t_src) & np.isfinite(source_src)
             if np.count_nonzero(valid) < 2:
                 continue
             delta_t = t_now - t_src[valid]
+            valid_window = delta_t <= max_lookback_gyr
+            if np.count_nonzero(valid_window) < 2:
+                continue
+            delta_t = delta_t[valid_window]
+            t_valid = t_src[valid][valid_window]
+            source_valid = source_src[valid][valid_window]
             kernel = _extended_burst_kernel(delta_t, td_group, kappa=kappa)
-            mdot_burst[first + local_i] = np.trapezoid(kernel * mdot_src[valid], x=t_src[valid])
-    return mdot_burst
+            convolved[first + local_i] = np.trapezoid(kernel * source_valid, x=t_valid)
+    return convolved
+
+
+def _reshape_grouped_regular_grid(
+    values: np.ndarray,
+    boundaries: np.ndarray,
+) -> np.ndarray | None:
+    counts = np.diff(boundaries)
+    if counts.size == 0 or np.any(counts != counts[0]):
+        return None
+    return np.asarray(values, dtype=float).reshape(counts.size, counts[0])
+
+
+def _compute_extended_burst_convolution_vectorized_regular_grid(
+    t_grid: np.ndarray,
+    source_grid: np.ndarray,
+    active_grid: np.ndarray,
+    td_burst_grid: np.ndarray,
+    kappa: float,
+    max_lookback_gyr: float,
+) -> np.ndarray:
+    n_halos, n_steps = source_grid.shape
+    result = np.zeros_like(source_grid, dtype=float)
+    valid_halos = np.any(active_grid, axis=1)
+    if not np.any(valid_halos):
+        return result
+
+    first_active = np.argmax(active_grid, axis=1)
+    halo_index = np.arange(n_halos, dtype=int)
+    td_per_halo = td_burst_grid[halo_index, first_active]
+    valid_td = valid_halos & np.isfinite(td_per_halo) & (td_per_halo > 0.0)
+    if not np.any(valid_td):
+        return result
+
+    time_row = np.asarray(t_grid[0], dtype=float)
+    for halo_id in np.flatnonzero(valid_td):
+        start_index = int(first_active[halo_id])
+        t_local = time_row[start_index:]
+        source_local = np.asarray(source_grid[halo_id, start_index:], dtype=float)
+        if t_local.size < 2:
+            continue
+
+        delta_t = t_local[:, None] - t_local[None, :]
+        causal_mask = delta_t >= 0.0
+        window_mask = delta_t <= max_lookback_gyr
+        valid_mask = causal_mask & window_mask
+        causal_delta_t = np.where(causal_mask, delta_t, 0.0)
+        td_scale = float(td_per_halo[halo_id])
+        with np.errstate(over="ignore", divide="ignore", invalid="ignore"):
+            kernel = causal_delta_t / (kappa**2 * td_scale**2)
+            kernel *= np.exp(-causal_delta_t / (kappa * td_scale))
+        kernel *= valid_mask
+        integrand = kernel * source_local[None, :]
+        result[halo_id, start_index:] = np.trapezoid(integrand, x=t_local, axis=1)
+
+    return result
 
 
 def _tracks_are_grouped_and_sorted(halo_id: np.ndarray, time: np.ndarray) -> bool:
@@ -184,6 +247,7 @@ def compute_sfr_from_tracks(
     atomic_cooling_temperature: float = 1.0e4,
     enable_time_delay: bool = False,
     burst_kappa: float = EXTENDED_BURST_KAPPA,
+    burst_lookback_max_myr: float = EXTENDED_BURST_LOOKBACK_MAX_MYR,
     model_parameters: SFRModelParameters | None = None,
 ) -> dict[str, np.ndarray]:
     """Compute SFR in Msun/yr and related virial quantities from halo history tracks."""
@@ -199,6 +263,9 @@ def compute_sfr_from_tracks(
             raise ValueError(f"tracks column '{name}' does not match halo_id length")
 
     model_parameters = _resolve_sfr_model_parameters(model_parameters)
+    max_burst_lookback_gyr = float(burst_lookback_max_myr) / 1.0e3
+    if max_burst_lookback_gyr <= 0.0:
+        raise ValueError("burst_lookback_max_myr must be positive")
     cosmo = CosmologySet()
     baryon_fraction = cosmo.omegab / cosmo.omegam
     sorted_tracks, _, boundaries, group_ids = _prepare_track_columns(tracks)
@@ -240,16 +307,57 @@ def compute_sfr_from_tracks(
     sfr = np.zeros_like(mass, dtype=float)
     active_now = np.isfinite(mass) & np.isfinite(mdot) & (t_vir >= atomic_cooling_temperature)
     if enable_time_delay:
-        mdot_burst = _compute_extended_burst_mdot(
-            t_gyr=t_gyr,
-            mdot=mdot,
-            active=active_now,
-            boundaries=boundaries,
-            kappa=float(burst_kappa),
-            td_burst=td_burst,
-        )
-        active_burst = active_now & np.isfinite(fstar_now) & np.isfinite(mdot_burst)
-        sfr[active_burst] = baryon_fraction * fstar_now[active_burst] * mdot_burst[active_burst] / YEARS_PER_GYR
+        t_grid = _reshape_grouped_regular_grid(t_gyr, boundaries)
+        mdot_grid = _reshape_grouped_regular_grid(mdot, boundaries)
+        td_grid = _reshape_grouped_regular_grid(td_burst, boundaries)
+        source_rate_grid = _reshape_grouped_regular_grid(fstar_now * mdot, boundaries)
+        active_grid = _reshape_grouped_regular_grid(active_now.astype(float), boundaries)
+        if (
+            t_grid is not None
+            and mdot_grid is not None
+            and td_grid is not None
+            and source_rate_grid is not None
+            and active_grid is not None
+            and np.all(np.isfinite(t_grid))
+            and np.allclose(t_grid, t_grid[0], rtol=0.0, atol=0.0)
+        ):
+            mdot_burst = _compute_extended_burst_convolution_vectorized_regular_grid(
+                t_grid=t_grid,
+                source_grid=mdot_grid,
+                active_grid=active_grid.astype(bool),
+                td_burst_grid=td_grid,
+                kappa=float(burst_kappa),
+                max_lookback_gyr=max_burst_lookback_gyr,
+            ).reshape(-1)
+            sfr_source_burst = _compute_extended_burst_convolution_vectorized_regular_grid(
+                t_grid=t_grid,
+                source_grid=source_rate_grid,
+                active_grid=active_grid.astype(bool),
+                td_burst_grid=td_grid,
+                kappa=float(burst_kappa),
+                max_lookback_gyr=max_burst_lookback_gyr,
+            ).reshape(-1)
+        else:
+            mdot_burst = _compute_extended_burst_convolution(
+                t_gyr=t_gyr,
+                source_values=mdot,
+                active=active_now,
+                boundaries=boundaries,
+                kappa=float(burst_kappa),
+                td_burst=td_burst,
+                max_lookback_gyr=max_burst_lookback_gyr,
+            )
+            sfr_source_burst = _compute_extended_burst_convolution(
+                t_gyr=t_gyr,
+                source_values=fstar_now * mdot,
+                active=active_now,
+                boundaries=boundaries,
+                kappa=float(burst_kappa),
+                td_burst=td_burst,
+                max_lookback_gyr=max_burst_lookback_gyr,
+            )
+        active_burst = active_now & np.isfinite(sfr_source_burst)
+        sfr[active_burst] = baryon_fraction * sfr_source_burst[active_burst] / YEARS_PER_GYR
     else:
         mdot_burst = np.full_like(mass, np.nan, dtype=float)
         active = np.isfinite(fstar_now) & np.isfinite(mdot) & (t_vir >= atomic_cooling_temperature)
@@ -270,4 +378,10 @@ def compute_sfr_from_tracks(
     output["SFR"] = sfr
     return output
 
-__all__ = ["DEFAULT_SFR_MODEL_PARAMETERS", "SFRModelParameters", "compute_sfr_from_tracks"]
+__all__ = [
+    "DEFAULT_SFR_MODEL_PARAMETERS",
+    "EXTENDED_BURST_LOOKBACK_MAX_MYR",
+    "EXTENDED_BURST_KAPPA",
+    "SFRModelParameters",
+    "compute_sfr_from_tracks",
+]

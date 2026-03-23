@@ -6,6 +6,7 @@ import numpy as np
 
 
 DEFAULT_TIME_UNIT_IN_YEARS = 1.0e9
+SSP_UV_LOOKBACK_MAX_MYR = 100.0
 
 
 def _ensure_1d_float_array(name: str, values: np.ndarray | list[float] | tuple[float, ...]) -> np.ndarray:
@@ -143,6 +144,7 @@ def compute_halo_uv_luminosity(
     M_min: float,
     t_z50: float,
     time_unit_in_years: float = DEFAULT_TIME_UNIT_IN_YEARS,
+    ssp_lookback_max_myr: float = SSP_UV_LOOKBACK_MAX_MYR,
     return_details: bool = False,
 ) -> float | dict[str, Any]:
     """Convolve a halo SFR history with an SSP UV kernel and return the halo UV luminosity at t_obs."""
@@ -160,15 +162,19 @@ def compute_halo_uv_luminosity(
     t_z50 = float(t_z50)
     M_min = float(M_min)
     time_unit_in_years = float(time_unit_in_years)
+    ssp_lookback_max_gyr = float(ssp_lookback_max_myr) / 1.0e3
 
     if time_unit_in_years <= 0.0:
         raise ValueError("time_unit_in_years must be positive")
+    if ssp_lookback_max_gyr <= 0.0:
+        raise ValueError("ssp_lookback_max_myr must be positive")
     if not (t_sorted[0] <= t_obs <= t_sorted[-1]):
         raise ValueError("t_obs must lie within the covered t_history range")
 
     t_cross = _find_mass_crossing_time(t_sorted, mh_sorted, M_min)
     ti = max(t_z50, t_cross) if t_cross is not None else t_z50
     ti = max(ti, t_sorted[0])
+    ti = max(ti, t_obs - ssp_lookback_max_gyr)
 
     if ti >= t_obs:
         details = {
@@ -199,6 +205,7 @@ def compute_halo_uv_luminosity(
     details = {
         "L_uv_halo": l_uv_halo,
         "ti": ti,
+        "ssp_lookback_max_myr": float(ssp_lookback_max_myr),
         "mask_used": mask_used,
         "age_used": age_used,
         "t_used": t_used,

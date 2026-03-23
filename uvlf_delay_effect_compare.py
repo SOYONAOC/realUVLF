@@ -26,6 +26,11 @@ def _parse_args() -> argparse.Namespace:
         type=str,
         default="outputs/uvlf_delay_effect_compare",
     )
+    parser.add_argument(
+        "--data-path",
+        type=str,
+        default="data_save/uvlf_delay_effect_compare_data.npz",
+    )
     return parser.parse_args()
 
 
@@ -92,10 +97,46 @@ def _write_summary(
     summary_path.write_text("\n".join(lines), encoding="utf-8")
 
 
+def _save_uvlf_data(
+    data_path: Path,
+    z_values: list[float],
+    no_delay_results: list[UVLFSamplingResult],
+    delay_results: list[UVLFSamplingResult],
+    n_grid: int,
+) -> None:
+    payload: dict[str, np.ndarray] = {
+        "z_values": np.asarray(z_values, dtype=float),
+        "n_grid": np.array([int(n_grid)], dtype=int),
+    }
+    for z_obs, no_delay, delay in zip(z_values, no_delay_results, delay_results, strict=True):
+        tag = f"z{str(z_obs).replace('.', 'p')}"
+        for prefix, result in (("no_delay", no_delay), ("delay", delay)):
+            payload[f"{tag}_{prefix}_bin_edges"] = np.asarray(result.uvlf["bin_edges"], dtype=float)
+            payload[f"{tag}_{prefix}_bin_centers"] = np.asarray(result.uvlf["bin_centers"], dtype=float)
+            payload[f"{tag}_{prefix}_bin_width"] = np.asarray(result.uvlf["bin_width"], dtype=float)
+            payload[f"{tag}_{prefix}_weighted_counts"] = np.asarray(result.uvlf["weighted_counts"], dtype=float)
+            payload[f"{tag}_{prefix}_phi"] = np.asarray(result.uvlf["phi"], dtype=float)
+            payload[f"{tag}_{prefix}_sampling_seconds"] = np.array(
+                [float(result.metadata["sampling_seconds"])],
+                dtype=float,
+            )
+            payload[f"{tag}_{prefix}_n_mass"] = np.array([int(result.metadata["N_mass"])], dtype=int)
+            payload[f"{tag}_{prefix}_n_tracks"] = np.array([int(result.metadata["n_tracks"])], dtype=int)
+            payload[f"{tag}_{prefix}_n_grid"] = np.array([int(n_grid)], dtype=int)
+            payload[f"{tag}_{prefix}_enable_time_delay"] = np.array(
+                [bool(result.metadata["enable_time_delay"])],
+                dtype=bool,
+            )
+
+    np.savez_compressed(data_path, **payload)
+
+
 def main() -> None:
     args = _parse_args()
     output_prefix = Path(args.output_prefix).expanduser().resolve()
     output_prefix.parent.mkdir(parents=True, exist_ok=True)
+    data_path = Path(args.data_path).expanduser().resolve()
+    data_path.parent.mkdir(parents=True, exist_ok=True)
 
     z_values = [float(value) for value in args.z_values]
     no_delay_results: list[UVLFSamplingResult] = []
@@ -181,9 +222,11 @@ def main() -> None:
     plt.close(fig)
 
     _write_summary(summary_path, z_values, no_delay_results, delay_results)
+    _save_uvlf_data(data_path, z_values, no_delay_results, delay_results, n_grid=args.n_grid)
     print(f"saved_png={png_path}")
     print(f"saved_pdf={pdf_path}")
     print(f"saved_txt={summary_path}")
+    print(f"saved_npz={data_path}")
 
 
 if __name__ == "__main__":

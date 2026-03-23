@@ -14,4 +14,5 @@ slides/
 
 # Large raw datasets: keep outside the initial Git history.
 spectra-bin_byrne23/*.dat
+spectra-bin_byrne23/*.hdf5
 obsdata/universemachine_dr1/*.tar.gz

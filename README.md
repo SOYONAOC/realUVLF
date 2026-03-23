@@ -127,8 +127,12 @@ from sfr import compute_sfr_from_tracks
 - 当 `enable_time_delay=False` 时，直接用当前时刻的 `Mh` 和 `dMh_dt`
 - 当 `enable_time_delay=True` 时，使用
   `g(t-t') \propto (t-t') \exp[-(t-t')/(\kappa t_d)]`
-  的 extended-burst 核对 `dMh/dt` 做时间卷积
+  的 extended-burst 核对
+  `fstar(Mh(t')) * dMh_dt(t')`
+  做时间卷积
 - `tau_del/t_src/Mh_src/dMh_dt_src` 仍保留，作为与旧单一延迟时间口径可对照的诊断量
+- `mdot_burst` 仍保留，表示只对 `dMh/dt` 做 kernel 卷积后的诊断量；真正进入 delay-SFR 的是
+  `kernel * fstar(Mh) * dMh_dt` 的积分
 - 若 `T_vir < 1e4 K`，则 `SFR = 0`
 
 最小调用：

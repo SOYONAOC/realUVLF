@@ -314,7 +314,9 @@ compute_sfr_from_tracks(tracks, enable_time_delay=True)
 其中 `enable_time_delay=False` 可作为默认行为，表示直接用当前时刻的
 `Mh` 和 `dMh_dt` 计算 SFR；只有在显式开启时才使用
 基于 `g(t-t') \propto (t-t') \exp[-(t-t')/(\kappa t_d)]` 的
-extended-burst 延迟核。
+extended-burst 延迟核，对
+\(f_\star[M_h(t')]\,\dot M_h(t')\)
+做时间卷积。
 
 而不是：
 
