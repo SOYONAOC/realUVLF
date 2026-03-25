@@ -157,8 +157,11 @@ from ssp import load_uv1600_table
 
 - `file_path`
   SSP 光谱文件路径，例如 `spectra-bin_byrne23/spectra-bin-imf135_300.BASEL.z001.a+00.dat`
+  或 `spectra-bin_byrne23/SSP_Spectra_BPASSv2.2.1_bin-imf100_300.hdf5`
 - `wavelength_a`
   目标波长，单位 `Angstrom`，默认 `1600.0`
+- `metallicity`
+  仅对 `HDF5` SSP 文件生效，单位是线性 `Z/Zsun`；必须精确匹配文件中的离散金属丰度选项，例如 `0.05`、`0.1`、`0.2`
 
 输出：
 
@@ -170,7 +173,10 @@ from ssp import load_uv1600_table
 说明：
 
 - 内部带缓存；同一个文件和波长组合只会实际读取一次
-- 当前默认用于 `Z=0.001` 的 SSP 文件
+- 对 `.dat` 文件保持现有读取行为不变
+- 对 `.hdf5` 文件会直接使用文件内年龄网格，并按 `metallicity=Z/Zsun` 精确选择金属丰度 bin
+- 当前这批 BPASS `HDF5` 模板中的 `spectra` 已经是按单位恒星质量归一化的 `Lnu/Msun`
+- 读取 `.hdf5` 文件需要 `h5py`
 
 ## `ssp.interpolate_uv1600_luminosity_per_msun()`
 
@@ -188,6 +194,8 @@ from ssp import interpolate_uv1600_luminosity_per_msun
   SSP 光谱文件路径
 - `wavelength_a`
   目标波长，单位 `Angstrom`，默认 `1600.0`
+- `metallicity`
+  仅对 `HDF5` SSP 文件生效，单位是线性 `Z/Zsun`；必须精确匹配文件中的离散金属丰度选项
 
 输出：
 
@@ -207,6 +215,17 @@ from ssp import interpolate_uv1600_luminosity_per_msun
 lum_1600 = interpolate_uv1600_luminosity_per_msun(
     time_myr=10.0,
     file_path="spectra-bin_byrne23/spectra-bin-imf135_300.BASEL.z001.a+00.dat",
+)
+```
+
+HDF5 示例：
+
+```python
+from ssp import load_uv1600_table
+
+ages_myr, luv_per_msun = load_uv1600_table(
+    file_path="spectra-bin_byrne23/SSP_Spectra_BPASSv2.2.1_bin-imf100_300.hdf5",
+    metallicity=0.05,
 )
 ```
 

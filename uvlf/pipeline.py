@@ -20,7 +20,7 @@ from sfr import (
 from ssp import SSP_UV_LOOKBACK_MAX_MYR, compute_halo_uv_luminosity, interpolate_ssp_luminosity, load_uv1600_table
 
 
-DEFAULT_SSP_FILE = "spectra-bin_byrne23/spectra-bin-imf135_300.BASEL.z001.a+00.dat"
+DEFAULT_SSP_FILE = "data_save/ssp_uv1600_topheavy_imf100_300_z0005.npz"
 YEARS_PER_GYR = 1.0e9
 
 

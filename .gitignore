@@ -1,6 +1,9 @@
 .venv/
 __pycache__/
 *.pyc
+/*.py
+!run_uvlf_compare_imf_no_delay_all_z.py
+!replot_uvlf_imf_no_delay_compare.py
 
 outputs/
 data_save/
