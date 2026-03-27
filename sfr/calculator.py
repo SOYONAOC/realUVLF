@@ -17,6 +17,10 @@ BETA_STAR = 0.66
 GAMMA_STAR = 0.65
 EXTENDED_BURST_KAPPA = 0.1
 EXTENDED_BURST_LOOKBACK_MAX_MYR = 100.0
+STREAMING_VELOCITY_RMS_RECOMBINATION_KMS = 30.0
+STREAMING_VELOCITY_RECOMBINATION_REDSHIFT = 1089.0
+H2_COOLING_A_KMS = 3.714
+H2_COOLING_B_KMS = 4.015
 
 
 @dataclass(frozen=True)
@@ -48,6 +52,92 @@ def _stellar_formation_efficiency(mass: np.ndarray, model_parameters: SFRModelPa
     with np.errstate(over="ignore", divide="ignore", invalid="ignore"):
         denominator = ratio ** (-model_parameters.beta_star) + ratio**model_parameters.gamma_star
     return 2.0 * model_parameters.epsilon_0 / denominator
+
+
+def _hubble_parameter(redshift: np.ndarray, cosmology: CosmologySet) -> np.ndarray:
+    return cosmology.H0u * np.sqrt(cosmology.omegam * (1.0 + redshift) ** 3 + cosmology.omegalam)
+
+
+def omega_matter_at_redshift(redshift: float | np.ndarray, cosmology: CosmologySet | None = None) -> np.ndarray:
+    cosmo = CosmologySet() if cosmology is None else cosmology
+    z = np.asarray(redshift, dtype=float)
+    hubble_ratio_sq = (_hubble_parameter(z, cosmo) / cosmo.H0u) ** 2
+    return cosmo.omegam * (1.0 + z) ** 3 / hubble_ratio_sq
+
+
+def virial_overdensity(redshift: float | np.ndarray, cosmology: CosmologySet | None = None) -> np.ndarray:
+    omega_m_z = omega_matter_at_redshift(redshift, cosmology=cosmology)
+    delta = omega_m_z - 1.0
+    return 18.0 * np.pi**2 + 82.0 * delta - 39.0 * delta**2
+
+
+def critical_density(redshift: float | np.ndarray, cosmology: CosmologySet | None = None) -> np.ndarray:
+    cosmo = CosmologySet() if cosmology is None else cosmology
+    z = np.asarray(redshift, dtype=float)
+    hubble = _hubble_parameter(z, cosmo)
+    return cosmo.rhocrit * (hubble / cosmo.H0u) ** 2
+
+
+def virial_mass_from_circular_velocity(
+    circular_velocity_kms: float | np.ndarray,
+    redshift: float | np.ndarray,
+    cosmology: CosmologySet | None = None,
+) -> np.ndarray:
+    cosmo = CosmologySet() if cosmology is None else cosmology
+    vc = np.asarray(circular_velocity_kms, dtype=float)
+    rho_crit = critical_density(redshift, cosmology=cosmo)
+    delta_vir = virial_overdensity(redshift, cosmology=cosmo)
+    prefactor = (GRAVITATIONAL_CONSTANT_MPC_KMS2_MSUN ** 1.5) * np.sqrt(4.0 * np.pi * delta_vir * rho_crit / 3.0)
+    with np.errstate(over="ignore", divide="ignore", invalid="ignore"):
+        return vc**3 / prefactor
+
+
+def streaming_velocity_rms(
+    redshift: float | np.ndarray,
+    sigma_vbc_recombination_kms: float = STREAMING_VELOCITY_RMS_RECOMBINATION_KMS,
+    z_recombination: float = STREAMING_VELOCITY_RECOMBINATION_REDSHIFT,
+) -> np.ndarray:
+    z = np.asarray(redshift, dtype=float)
+    return float(sigma_vbc_recombination_kms) * (1.0 + z) / (1.0 + float(z_recombination))
+
+
+def h2_cooling_circular_velocity(
+    redshift: float | np.ndarray,
+    v_bc_kms: float | np.ndarray | None = None,
+    sigma_vbc_recombination_kms: float = STREAMING_VELOCITY_RMS_RECOMBINATION_KMS,
+    z_recombination: float = STREAMING_VELOCITY_RECOMBINATION_REDSHIFT,
+    a_kms: float = H2_COOLING_A_KMS,
+    b_kms: float = H2_COOLING_B_KMS,
+) -> np.ndarray:
+    if v_bc_kms is None:
+        v_bc = streaming_velocity_rms(
+            redshift,
+            sigma_vbc_recombination_kms=sigma_vbc_recombination_kms,
+            z_recombination=z_recombination,
+        )
+    else:
+        v_bc = np.asarray(v_bc_kms, dtype=float)
+    return np.sqrt(float(a_kms) ** 2 + (float(b_kms) * v_bc) ** 2)
+
+
+def minihalo_mass_floor(
+    redshift: float | np.ndarray,
+    v_bc_kms: float | np.ndarray | None = None,
+    cosmology: CosmologySet | None = None,
+    sigma_vbc_recombination_kms: float = STREAMING_VELOCITY_RMS_RECOMBINATION_KMS,
+    z_recombination: float = STREAMING_VELOCITY_RECOMBINATION_REDSHIFT,
+    a_kms: float = H2_COOLING_A_KMS,
+    b_kms: float = H2_COOLING_B_KMS,
+) -> np.ndarray:
+    v_cool = h2_cooling_circular_velocity(
+        redshift,
+        v_bc_kms=v_bc_kms,
+        sigma_vbc_recombination_kms=sigma_vbc_recombination_kms,
+        z_recombination=z_recombination,
+        a_kms=a_kms,
+        b_kms=b_kms,
+    )
+    return virial_mass_from_circular_velocity(v_cool, redshift, cosmology=cosmology)
 
 
 def _extended_burst_kernel(delta_t_gyr: np.ndarray, td_gyr: float, kappa: float = EXTENDED_BURST_KAPPA) -> np.ndarray:
@@ -274,17 +364,17 @@ def compute_sfr_from_tracks(
     mass = np.asarray(sorted_tracks["Mh"], dtype=float)
     mdot = np.asarray(sorted_tracks["dMh_dt"], dtype=float)
 
-    hubble = cosmo.H0u * np.sqrt(cosmo.omegam * (1.0 + z) ** 3 + cosmo.omegalam)
-    rho_crit = cosmo.rhocrit * (hubble / cosmo.H0u) ** 2
-    omega_m_z = cosmo.omegam * (1.0 + z) ** 3 / (cosmo.omegam * (1.0 + z) ** 3 + cosmo.omegalam)
-    delta = omega_m_z - 1.0
-    delta_vir = 18.0 * np.pi**2 + 82.0 * delta - 39.0 * delta**2
+    rho_crit = critical_density(z, cosmology=cosmo)
+    delta_vir = virial_overdensity(z, cosmology=cosmo)
     rho_vir = delta_vir * rho_crit
 
     # Use Msun and Mpc consistently so virial quantities remain numerically stable.
     r_vir = (3.0 * mass / (4.0 * np.pi * delta_vir * rho_crit)) ** (1.0 / 3.0)
     v_c = np.sqrt(GRAVITATIONAL_CONSTANT_MPC_KMS2_MSUN * mass / r_vir)
     t_vir = mu * PROTON_MASS_KG * (v_c * 1.0e3) ** 2 / (2.0 * BOLTZMANN_CONSTANT_J_K)
+    sigma_vbc_rms = streaming_velocity_rms(z)
+    v_cool_h2 = h2_cooling_circular_velocity(z, v_bc_kms=sigma_vbc_rms)
+    m_cool_h2 = minihalo_mass_floor(z, v_bc_kms=sigma_vbc_rms, cosmology=cosmo)
     tau_del = r_vir * KM_PER_MPC / v_c / SECONDS_PER_GYR
     td_burst = np.sqrt(3.0 * np.pi / (32.0 * GRAVITATIONAL_CONSTANT_MPC_KMS2_MSUN * rho_vir))
     td_burst = td_burst * KM_PER_MPC / SECONDS_PER_GYR
@@ -367,6 +457,9 @@ def compute_sfr_from_tracks(
     output["r_vir"] = r_vir
     output["V_c"] = v_c
     output["T_vir"] = t_vir
+    output["sigma_vbc_rms"] = sigma_vbc_rms
+    output["V_cool_H2"] = v_cool_h2
+    output["M_cool_H2"] = m_cool_h2
     output["tau_del"] = tau_del
     output["td_burst"] = td_burst
     output["t_src"] = t_src
@@ -382,6 +475,17 @@ __all__ = [
     "DEFAULT_SFR_MODEL_PARAMETERS",
     "EXTENDED_BURST_LOOKBACK_MAX_MYR",
     "EXTENDED_BURST_KAPPA",
+    "H2_COOLING_A_KMS",
+    "H2_COOLING_B_KMS",
     "SFRModelParameters",
+    "STREAMING_VELOCITY_RECOMBINATION_REDSHIFT",
+    "STREAMING_VELOCITY_RMS_RECOMBINATION_KMS",
     "compute_sfr_from_tracks",
+    "critical_density",
+    "h2_cooling_circular_velocity",
+    "minihalo_mass_floor",
+    "omega_matter_at_redshift",
+    "streaming_velocity_rms",
+    "virial_mass_from_circular_velocity",
+    "virial_overdensity",
 ]

@@ -186,6 +186,30 @@ T_{\rm vir}(t)\ge 10^4,{\rm K}
 {\rm SFR}(t)=0
 ]
 
+### 6.1 minihalo 的 H(_2) 冷却下限
+
+若要单独诊断 minihalo 的 H(_2) 冷却门槛，可采用 Fialkov et al. 的拟合：
+
+[
+V_{{\rm cool},H_2}(z)=\left[a^2+(b\,v_{\rm bc}(z))^2\right]^{1/2}
+]
+
+其中默认取
+
+[
+a=3.714~{\rm km\,s^{-1}},\qquad b=4.015
+]
+
+并默认采用该文中的一维 RMS streaming velocity 标度
+
+[
+\sigma_{\rm bc}(z)=30\ \frac{1+z}{1+1089}\ {\rm km\,s^{-1}}
+]
+
+如果取 `v_bc(z)=sigma_bc(z)`，则可定义相应的 minihalo 下限质量
+`M_cool_H2(z)`。在代码里，这一步通过先计算 `V_cool_H2`，再按 Barkana & Loeb 的
+virial 关系反解 `M_vir` 完成。
+
 ---
 
 ## 7. source-time 取值

@@ -19,7 +19,7 @@ from mah import generate_halo_histories
 - `z_start_max`
   回溯的最高红移，默认 `50.0`
 - `M_min`
-  最低质量阈值；默认 `None` 时使用 `massfunc.SFRD().M_vir(mu=0.61, Tvir=1e4, z)`，也可以传标量、与红移网格同长度的数组，或 `M_min(z)` 形式的可调用对象
+  最低质量阈值；默认 `None` 时使用 `massfunc.SFRD().M_vir(mu=0.61, Tvir=1e4, z)`，也可以传标量、与红移网格同长度的数组，或 `M_min(z)` 形式的可调用对象。若研究 minihalo 成星，可直接传 `sfr.minihalo_mass_floor`，把 H(_2) 冷却下限 `M_cool_H2(z)` 作为成星下限质量
 - `cosmology`
   `mah.Cosmology`；未提供时使用项目默认宇宙学
 - `random_seed`
@@ -111,6 +111,9 @@ from sfr import compute_sfr_from_tracks
   - `r_vir`
   - `V_c`
   - `T_vir`
+  - `sigma_vbc_rms`
+  - `V_cool_H2`
+  - `M_cool_H2`
   - `tau_del`
   - `td_burst`
   - `t_src`
@@ -134,6 +137,69 @@ from sfr import compute_sfr_from_tracks
 - `mdot_burst` 仍保留，表示只对 `dMh/dt` 做 kernel 卷积后的诊断量；真正进入 delay-SFR 的是
   `kernel * fstar(Mh) * dMh_dt` 的积分
 - 若 `T_vir < 1e4 K`，则 `SFR = 0`
+- `sigma_vbc_rms/V_cool_H2/M_cool_H2` 是额外的 minihalo 诊断量，其中
+  `V_cool_H2 = sqrt(a^2 + (b v_bc)^2)`，默认采用 `a=3.714 km/s`、`b=4.015` 和
+  `v_bc(z)=sigma_bc(z)`
+
+## 项目里 minihalo 的成星下限
+
+项目中可把
+
+```python
+from sfr import minihalo_mass_floor
+```
+
+返回的 `M_cool_H2(z)` 作为 minihalo 可以成星的下限质量。
+
+默认口径是：
+
+- 采用 Fialkov et al. 的拟合
+  `V_cool,H2 = sqrt(a^2 + (b v_bc)^2)`
+- 默认参数 `a=3.714 km/s`、`b=4.015`
+- 默认取 `v_bc(z)=sigma_bc(z)`
+- 再用 Barkana & Loeb 的 virial 关系把 `V_cool,H2` 转成 virial mass
+
+如果要把它真正用于轨道截断或活跃 halo 选择，推荐直接传给 `mah.generate_halo_histories()` 的 `M_min`：
+
+```python
+from mah import generate_halo_histories
+from sfr import minihalo_mass_floor
+
+result = generate_halo_histories(
+    n_tracks=100,
+    z_final=10.0,
+    Mh_final=1e8,
+    M_min=minihalo_mass_floor,
+)
+```
+
+## `sfr.minihalo_mass_floor()`
+
+导入：
+
+```python
+from sfr import minihalo_mass_floor
+```
+
+输入：
+
+- `redshift`
+  标量或数组红移
+- `v_bc_kms`
+  可选的 baryon-dark matter streaming velocity，单位 `km/s`；未提供时默认采用
+  `sigma_bc(z)`
+- `cosmology`
+  可选宇宙学；未提供时使用项目默认宇宙学
+
+输出：
+
+- 对应 redshift 上的 H(_2) 冷却 minihalo 下限质量，单位 `Msun`
+
+说明：
+
+- 采用 Fialkov et al. 的拟合
+  `V_cool,H2 = sqrt(a^2 + (b v_bc)^2)`
+- 再用 Barkana & Loeb 的 virial 标度把 `V_cool,H2` 转成 `M_vir`
 
 最小调用：
 
