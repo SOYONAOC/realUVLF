@@ -103,6 +103,12 @@ from sfr import compute_sfr_from_tracks
   原子冷却阈值，默认 `1e4 K`
 - `enable_time_delay`
   是否启用基于 dynamical time 的 extended-burst 延迟核；默认 `False`
+- `burst_kappa`
+  extended-burst 核的 κ 参数；默认 `0.1`
+- `burst_lookback_max_myr`
+  延迟卷积最大回看时间，单位 `Myr`；默认 `100.0`
+- `model_parameters`
+  `SFRModelParameters` 实例；未提供时使用默认参数
 
 输出：
 
@@ -114,6 +120,7 @@ from sfr import compute_sfr_from_tracks
   - `sigma_vbc_rms`
   - `V_cool_H2`
   - `M_cool_H2`
+  - `M_atom`
   - `tau_del`
   - `td_burst`
   - `t_src`
@@ -121,7 +128,11 @@ from sfr import compute_sfr_from_tracks
   - `dMh_dt_src`
   - `fstar_src`
   - `fstar_now`
+  - `pop2_active_flag`
+  - `branch_active_flag`
+  - `SFR_pop2`
   - `mdot_burst`
+  - `SFR_total`
   - `SFR`
 
 说明：
@@ -222,8 +233,8 @@ from ssp import load_uv1600_table
 输入：
 
 - `file_path`
-  SSP 光谱文件路径，例如 `spectra-bin_byrne23/spectra-bin-imf135_300.BASEL.z001.a+00.dat`
-  或 `spectra-bin_byrne23/SSP_Spectra_BPASSv2.2.1_bin-imf100_300.hdf5`
+  SSP 光谱文件路径，例如 `data/spectra-bin-imf135_300.BASEL.z001.a+00.dat`
+  或 `data/SSP_Spectra_BPASSv2.2.1_bin-imf100_300.hdf5`
 - `wavelength_a`
   目标波长，单位 `Angstrom`，默认 `1600.0`
 - `metallicity`
@@ -280,7 +291,7 @@ from ssp import interpolate_uv1600_luminosity_per_msun
 
 lum_1600 = interpolate_uv1600_luminosity_per_msun(
     time_myr=10.0,
-    file_path="spectra-bin_byrne23/spectra-bin-imf135_300.BASEL.z001.a+00.dat",
+    file_path="data/spectra-bin-imf135_300.BASEL.z001.a+00.dat",
 )
 ```
 
@@ -290,7 +301,7 @@ HDF5 示例：
 from ssp import load_uv1600_table
 
 ages_myr, luv_per_msun = load_uv1600_table(
-    file_path="spectra-bin_byrne23/SSP_Spectra_BPASSv2.2.1_bin-imf100_300.hdf5",
+    file_path="data/SSP_Spectra_BPASSv2.2.1_bin-imf100_300.hdf5",
     metallicity=0.05,
 )
 ```
@@ -363,7 +374,7 @@ histories = generate_halo_histories(n_tracks=1, z_final=6.0, Mh_final=1e11)
 sfr_tracks = compute_sfr_from_tracks(histories.tracks)
 
 ages_myr, luv_per_msun = load_uv1600_table(
-    "spectra-bin_byrne23/spectra-bin-imf135_300.BASEL.z001.a+00.dat"
+    "data/spectra-bin-imf135_300.BASEL.z001.a+00.dat"
 )
 ssp_age_grid_gyr = ages_myr / 1e3
 
@@ -401,7 +412,7 @@ from uvlf import run_halo_uv_pipeline
 - `n_grid`
   redshift grid 点数，默认 `240`
 - `ssp_file`
-  SSP 光谱文件路径；默认使用 `spectra-bin_byrne23/spectra-bin-imf135_300.BASEL.z001.a+00.dat`
+  SSP 光谱文件路径；默认使用 `data_save/ssp_uv1600_topheavy_imf100_300_z0005.npz`
 - `cosmology`
   `mah.Cosmology`；未提供时使用项目默认宇宙学
 - `random_seed`
@@ -412,6 +423,12 @@ from uvlf import run_halo_uv_pipeline
   是否在 `sfr` 计算中启用基于 dynamical time 的 extended-burst 延迟核，默认 `False`
 - `workers`
   保留的接口参数；当前实现中 `run_halo_uv_pipeline()` 内部 UV 卷积按串行执行
+- `burst_lookback_max_myr`
+  延迟卷积最大回看时间，单位 `Myr`；默认 `100.0`
+- `ssp_lookback_max_myr`
+  SSP UV 卷积最大回看时间，单位 `Myr`
+- `sfr_model_parameters`
+  `SFRModelParameters` 实例；默认使用 `DEFAULT_SFR_MODEL_PARAMETERS`
 
 输出：
 
@@ -427,6 +444,8 @@ from uvlf import run_halo_uv_pipeline
   `sfr.compute_sfr_from_tracks()` 输出的扁平表格
 - `uv_luminosities`
   每个 halo 在 `z_final` 的总 UV 光度，单位 `erg/s/Hz`
+- `muv`
+  每个 halo 在 `z_final` 的总 UV 星等
 - `redshift_grid`
   这次计算使用的 redshift grid
 - `floor_mass`
@@ -440,7 +459,8 @@ from uvlf import run_halo_uv_pipeline
 
 - 这个函数封装了完整主流程：`mah -> sfr -> SSP UV convolution`
 - `mah` 部分使用默认 `M_min`，即 `massfunc.SFRD().M_vir(mu=0.61, Tvir=1e4, z)`
-- UV 卷积只对 `active_flag=True` 的有效历史段进行
+- 若某个质量样本在整条历史上都没有 active step，当前会合法返回全零 UV，
+  `metadata["has_active_histories"]` 会记录这一点
 - `load_uv1600_table()` 读出的 SSP 年龄网格会自动从 `Myr` 转成 `Gyr` 后再参与卷积
 
 最小调用：
@@ -484,7 +504,7 @@ from uvlf import sample_uvlf_from_hmf
 - `logM_min`
   外层均匀抽样的最低 `log10 Mh`，默认 `9`
 - `logM_max`
-  外层均匀抽样的最高 `log10 Mh`，默认 `16`
+  外层均匀抽样的最高 `log10 Mh`，默认 `13`
 - `z_start_max`
   内层 `mah` 回溯的最高红移，默认 `50.0`
 - `n_grid`
@@ -496,9 +516,11 @@ from uvlf import sample_uvlf_from_hmf
 - `pipeline_workers`
   外层 `N_mass` 质量点采样使用的并行 worker 数
 - `ssp_file`
-  SSP 文件路径；默认使用 `spectra-bin_byrne23/spectra-bin-imf135_300.BASEL.z001.a+00.dat`
+  SSP 文件路径；默认使用 `data_save/ssp_uv1600_topheavy_imf100_300_z0005.npz`
 - `progress_path`
   可选进度文件路径；若提供，会把外层 `N_mass` 循环进度持续写入该 txt 文件
+- `sfr_model_parameters`
+  `SFRModelParameters` 实例；默认使用 `DEFAULT_SFR_MODEL_PARAMETERS`
 
 输出：
 
@@ -530,7 +552,7 @@ from uvlf import sample_uvlf_from_hmf
 
 说明：
 
-- 外层在 `log10 Mh in [9, 16]` 上均匀抽样
+- 外层在 `log10 Mh in [9, 13]` 上均匀抽样
 - 外层权重使用 ST halo mass function：
   - `dn/dlogM = M ln(10) dn/dM`
 - 每个质量点的总权重会平均分配给其 `n_tracks` 个 luminosity realization

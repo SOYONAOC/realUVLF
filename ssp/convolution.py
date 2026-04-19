@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 import numpy as np
+
+from .uv1600 import load_uv1600_table
 
 
 DEFAULT_TIME_UNIT_IN_YEARS = 1.0e9
@@ -132,6 +135,162 @@ def interpolate_ssp_luminosity(
     if np.ndim(age) == 0:
         return float(result)
     return result
+
+
+def _resolve_uv_kernel_grid(
+    uv_kernel: Any,
+) -> tuple[np.ndarray, np.ndarray] | None:
+    if isinstance(uv_kernel, (str, Path)):
+        ages_myr, luminosity_per_msun = load_uv1600_table(uv_kernel)
+        return ages_myr / 1.0e3, luminosity_per_msun
+
+    if isinstance(uv_kernel, (tuple, list)) and len(uv_kernel) == 2:
+        age_grid = _ensure_1d_float_array("uv_kernel age grid", uv_kernel[0])
+        luv_grid = _ensure_1d_float_array("uv_kernel luminosity grid", uv_kernel[1])
+        if age_grid.size != luv_grid.size:
+            raise ValueError("uv_kernel age and luminosity grids must have the same length")
+        return age_grid, luv_grid
+
+    if not isinstance(uv_kernel, dict):
+        return None
+
+    if "callable" in uv_kernel and callable(uv_kernel["callable"]):
+        return None
+
+    age_grid_raw = None
+    age_scale_to_gyr = 1.0
+    for key in ("ages_gyr", "age_gyr"):
+        if key in uv_kernel:
+            age_grid_raw = uv_kernel[key]
+            age_scale_to_gyr = 1.0
+            break
+    if age_grid_raw is None:
+        for key in ("ages_myr", "age_myr"):
+            if key in uv_kernel:
+                age_grid_raw = uv_kernel[key]
+                age_scale_to_gyr = 1.0e-3
+                break
+    if age_grid_raw is None:
+        for key in ("age_grid", "ages", "age"):
+            if key in uv_kernel:
+                age_grid_raw = uv_kernel[key]
+                age_scale_to_gyr = float(uv_kernel.get("age_unit_in_gyr", 1.0))
+                break
+    if age_grid_raw is None:
+        return None
+
+    luv_grid_raw = None
+    for key in ("luminosity_per_msun", "luv_grid", "luv", "kernel"):
+        if key in uv_kernel:
+            luv_grid_raw = uv_kernel[key]
+            break
+    if luv_grid_raw is None:
+        raise ValueError("uv_kernel dict must include a luminosity grid")
+
+    age_grid = _ensure_1d_float_array("uv_kernel age grid", age_grid_raw) * age_scale_to_gyr
+    luv_grid = _ensure_1d_float_array("uv_kernel luminosity grid", luv_grid_raw)
+    if age_grid.size != luv_grid.size:
+        raise ValueError("uv_kernel age and luminosity grids must have the same length")
+    return age_grid, luv_grid
+
+
+def evaluate_uv_luminosity_kernel(
+    age: float | np.ndarray,
+    uv_kernel: Any,
+) -> float | np.ndarray:
+    """Evaluate a UV kernel at the requested age in Gyr.
+
+    The kernel can be provided as:
+    - a callable ``kernel(age_gyr)``
+    - a ``(age_grid, luminosity_grid)`` tuple/list in Gyr
+    - a dict with ``ages_myr``/``ages_gyr`` and ``luminosity_per_msun`` or ``luv_grid``
+    - a path to an SSP file understood by ``load_uv1600_table``
+    """
+
+    age_array = np.asarray(age, dtype=float)
+    if np.any(age_array < 0.0):
+        raise ValueError("age must be non-negative")
+
+    if callable(uv_kernel):
+        try:
+            result = np.asarray(uv_kernel(age_array), dtype=float)
+        except Exception:
+            vectorized = np.vectorize(lambda single_age: float(uv_kernel(float(single_age))), otypes=[float])
+            result = vectorized(age_array)
+        if result.shape != age_array.shape:
+            result = np.broadcast_to(result, age_array.shape)
+    elif isinstance(uv_kernel, dict) and "callable" in uv_kernel and callable(uv_kernel["callable"]):
+        return evaluate_uv_luminosity_kernel(age, uv_kernel["callable"])
+    else:
+        kernel_grid = _resolve_uv_kernel_grid(uv_kernel)
+        if kernel_grid is None:
+            raise TypeError(
+                "uv_kernel must be a callable, a path, a two-array tuple/list, "
+                "or a dict containing kernel arrays"
+            )
+        age_grid_gyr, luv_grid = kernel_grid
+        result = np.asarray(
+            interpolate_ssp_luminosity(age_array, ssp_age_grid=age_grid_gyr, ssp_luv_grid=luv_grid),
+            dtype=float,
+        )
+
+    if np.ndim(age) == 0:
+        return float(result)
+    return np.asarray(result, dtype=float)
+
+
+def compute_stellar_mass_formed_per_step(
+    t_history: np.ndarray | list[float] | tuple[float, ...],
+    sfr_history: np.ndarray | list[float] | tuple[float, ...],
+) -> np.ndarray:
+    """Return forward-Euler stellar mass packets from a time-ordered SFR history.
+
+    ``t_history`` and ``sfr_history`` must use consistent time units so that
+    ``sfr_history * dt`` yields stellar mass. The final packet is set to zero
+    because there is no forward interval beyond the last stored time.
+    """
+
+    t_array = _ensure_1d_float_array("t_history", t_history)
+    sfr_array = _ensure_1d_float_array("sfr_history", sfr_history)
+    if t_array.size != sfr_array.size:
+        raise ValueError("t_history and sfr_history must have the same length")
+    if np.any(np.diff(t_array) <= 0.0):
+        raise ValueError("t_history must be strictly increasing")
+
+    dt = np.diff(t_array, append=t_array[-1])
+    mass_packets = np.zeros_like(sfr_array, dtype=float)
+    valid = np.isfinite(sfr_array) & (sfr_array > 0.0) & np.isfinite(dt)
+    mass_packets[valid] = sfr_array[valid] * dt[valid]
+    return mass_packets
+
+
+def convolve_stellar_mass_history(
+    t_history: np.ndarray | list[float] | tuple[float, ...],
+    dMstar_history: np.ndarray | list[float] | tuple[float, ...],
+    uv_kernel: Any,
+    packet_times: np.ndarray | list[float] | tuple[float, ...] | None = None,
+) -> np.ndarray:
+    """Convolve stellar mass packets with a UV kernel and return the full UV history."""
+
+    t_array = _ensure_1d_float_array("t_history", t_history)
+    dMstar_array = _ensure_1d_float_array("dMstar_history", dMstar_history)
+    if t_array.size != dMstar_array.size:
+        raise ValueError("t_history and dMstar_history must have the same length")
+    if np.any(np.diff(t_array) <= 0.0):
+        raise ValueError("t_history must be strictly increasing")
+    if packet_times is None:
+        packet_time_array = t_array
+    else:
+        packet_time_array = _ensure_1d_float_array("packet_times", packet_times)
+        if packet_time_array.size != t_array.size:
+            raise ValueError("packet_times must have the same length as t_history")
+
+    age_matrix = t_array[:, None] - packet_time_array[None, :]
+    causal = age_matrix >= 0.0
+    kernel_matrix = np.zeros_like(age_matrix, dtype=float)
+    if np.any(causal):
+        kernel_matrix[causal] = np.asarray(evaluate_uv_luminosity_kernel(age_matrix[causal], uv_kernel), dtype=float)
+    return np.sum(kernel_matrix * dMstar_array[None, :], axis=1)
 
 
 def compute_halo_uv_luminosity(

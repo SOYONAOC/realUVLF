@@ -180,14 +180,13 @@ def sample_uvlf_from_hmf(
     dndlogM = Mh * np.log(10.0) * dndm
     mass_weight = (logM_max - logM_min) * dndlogM / N_mass
 
-    total_samples = N_mass * n_tracks
-    sample_logMh = np.empty(total_samples, dtype=float)
-    sample_Mh = np.empty(total_samples, dtype=float)
-    sample_mass_weight = np.empty(total_samples, dtype=float)
-    sample_track_index = np.empty(total_samples, dtype=int)
-    sample_luminosity = np.empty(total_samples, dtype=float)
-    sample_sample_weight = np.empty(total_samples, dtype=float)
-    sample_Muv = np.empty(total_samples, dtype=float)
+    sample_logMh_chunks: list[np.ndarray] = []
+    sample_Mh_chunks: list[np.ndarray] = []
+    sample_mass_weight_chunks: list[np.ndarray] = []
+    sample_track_index_chunks: list[np.ndarray] = []
+    sample_luminosity_chunks: list[np.ndarray] = []
+    sample_sample_weight_chunks: list[np.ndarray] = []
+    sample_Muv_chunks: list[np.ndarray] = []
     per_mass_pipeline_seconds = np.empty(N_mass, dtype=float)
 
     progress_stride = max(1, N_mass // 100)
@@ -210,22 +209,32 @@ def sample_uvlf_from_hmf(
         for mass_index, (log_mass, mass, weight) in enumerate(zip(logMh, Mh, mass_weight, strict=True))
     ]
 
+    def _append_samples(
+        mass_index: int,
+        log_mass: float,
+        luminosity: np.ndarray,
+    ) -> None:
+        lum_flat = np.asarray(luminosity, dtype=float).reshape(-1)
+        local_count = lum_flat.size
+        track_index = np.arange(local_count, dtype=int)
+        sample_weight = np.full(local_count, mass_weight[mass_index] / n_tracks, dtype=float)
+
+        sample_logMh_chunks.append(np.full(local_count, log_mass, dtype=float))
+        sample_Mh_chunks.append(np.full(local_count, Mh[mass_index], dtype=float))
+        sample_mass_weight_chunks.append(np.full(local_count, mass_weight[mass_index], dtype=float))
+        sample_track_index_chunks.append(track_index)
+        sample_luminosity_chunks.append(lum_flat)
+        sample_sample_weight_chunks.append(sample_weight)
+        sample_Muv_chunks.append(np.asarray(uv_luminosity_to_muv(lum_flat), dtype=float))
+
     if max(1, pipeline_workers) == 1:
         results_iter = (_run_single_mass_sample(task) for task in tasks)
         completed = 0
         for mass_index, log_mass, luminosity, duration in results_iter:
-            if luminosity.size != n_tracks:
+            if np.asarray(luminosity).size != n_tracks:
                 raise RuntimeError("run_halo_uv_pipeline returned an unexpected number of luminosity samples")
 
-            start = mass_index * n_tracks
-            stop = start + n_tracks
-            sample_logMh[start:stop] = log_mass
-            sample_Mh[start:stop] = Mh[mass_index]
-            sample_mass_weight[start:stop] = mass_weight[mass_index]
-            sample_track_index[start:stop] = np.arange(n_tracks, dtype=int)
-            sample_luminosity[start:stop] = luminosity
-            sample_sample_weight[start:stop] = mass_weight[mass_index] / n_tracks
-            sample_Muv[start:stop] = np.asarray(uv_luminosity_to_muv(luminosity), dtype=float)
+            _append_samples(mass_index, log_mass, luminosity)
             per_mass_pipeline_seconds[mass_index] = duration
 
             completed += 1
@@ -244,18 +253,10 @@ def sample_uvlf_from_hmf(
             future_to_index = {executor.submit(_run_single_mass_sample, task): task[0] for task in tasks}
             for future in as_completed(future_to_index):
                 mass_index, log_mass, luminosity, duration = future.result()
-                if luminosity.size != n_tracks:
+                if np.asarray(luminosity).size != n_tracks:
                     raise RuntimeError("run_halo_uv_pipeline returned an unexpected number of luminosity samples")
 
-                start = mass_index * n_tracks
-                stop = start + n_tracks
-                sample_logMh[start:stop] = log_mass
-                sample_Mh[start:stop] = Mh[mass_index]
-                sample_mass_weight[start:stop] = mass_weight[mass_index]
-                sample_track_index[start:stop] = np.arange(n_tracks, dtype=int)
-                sample_luminosity[start:stop] = luminosity
-                sample_sample_weight[start:stop] = mass_weight[mass_index] / n_tracks
-                sample_Muv[start:stop] = np.asarray(uv_luminosity_to_muv(luminosity), dtype=float)
+                _append_samples(mass_index, log_mass, luminosity)
                 per_mass_pipeline_seconds[mass_index] = duration
 
                 completed += 1
@@ -268,6 +269,18 @@ def sample_uvlf_from_hmf(
                     )
                     if print_progress:
                         print(progress_text.strip(), flush=True)
+
+    sample_logMh = np.concatenate(sample_logMh_chunks) if sample_logMh_chunks else np.empty(0, dtype=float)
+    sample_Mh = np.concatenate(sample_Mh_chunks) if sample_Mh_chunks else np.empty(0, dtype=float)
+    sample_mass_weight = np.concatenate(sample_mass_weight_chunks) if sample_mass_weight_chunks else np.empty(0, dtype=float)
+    sample_track_index = np.concatenate(sample_track_index_chunks) if sample_track_index_chunks else np.empty(0, dtype=int)
+    sample_luminosity = (
+        np.concatenate(sample_luminosity_chunks) if sample_luminosity_chunks else np.empty(0, dtype=float)
+    )
+    sample_sample_weight = (
+        np.concatenate(sample_sample_weight_chunks) if sample_sample_weight_chunks else np.empty(0, dtype=float)
+    )
+    sample_Muv = np.concatenate(sample_Muv_chunks) if sample_Muv_chunks else np.empty(0, dtype=float)
 
     if quantity == "luminosity":
         histogram_values = sample_luminosity

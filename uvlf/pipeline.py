@@ -17,11 +17,18 @@ from sfr import (
     SFRModelParameters,
     compute_sfr_from_tracks,
 )
-from ssp import SSP_UV_LOOKBACK_MAX_MYR, compute_halo_uv_luminosity, interpolate_ssp_luminosity, load_uv1600_table
+from ssp import (
+    SSP_UV_LOOKBACK_MAX_MYR,
+    compute_halo_uv_luminosity,
+    evaluate_uv_luminosity_kernel,
+    interpolate_ssp_luminosity,
+    load_uv1600_table,
+)
 
 
 DEFAULT_SSP_FILE = "data_save/ssp_uv1600_topheavy_imf100_300_z0005.npz"
 YEARS_PER_GYR = 1.0e9
+AB_ZEROPOINT_LNU = 51.60
 
 
 @dataclass(frozen=True)
@@ -33,6 +40,7 @@ class HaloUVPipelineResult:
     floor_mass: np.ndarray
     active_grid: np.ndarray
     metadata: dict[str, Any]
+    muv: np.ndarray | None = None
 
 
 _UV_WORKER_STATE: dict[str, np.ndarray] = {}
@@ -40,6 +48,16 @@ _UV_WORKER_STATE: dict[str, np.ndarray] = {}
 
 def _build_astropy_cosmology(cosmology: Cosmology) -> FlatLambdaCDM:
     return FlatLambdaCDM(H0=cosmology.h0_km_s_mpc, Om0=cosmology.omega_m, Ob0=cosmology.omega_b)
+
+
+def _uv_luminosity_to_muv(luminosity_nu: np.ndarray | float) -> np.ndarray | float:
+    luminosity = np.asarray(luminosity_nu, dtype=float)
+    muv = np.full_like(luminosity, np.nan, dtype=float)
+    positive = luminosity > 0.0
+    muv[positive] = -2.5 * np.log10(luminosity[positive]) + AB_ZEROPOINT_LNU
+    if np.ndim(luminosity_nu) == 0:
+        return float(muv)
+    return muv
 
 
 def _init_uv_worker(ssp_luv_grid: np.ndarray) -> None:
@@ -203,6 +221,45 @@ def _compute_final_uv_luminosities_vectorized(
     return result
 
 
+def _compute_final_uv_from_mass_packets_regular_grid(
+    t_grid: np.ndarray,
+    dMstar_grid: np.ndarray,
+    uv_kernel: Any,
+    packet_time_grid: np.ndarray | None = None,
+) -> np.ndarray:
+    time_row = _resolve_regular_time_grid(t_grid)
+    if time_row is None:
+        raise ValueError("vectorized final UV packet convolution requires a shared regular time grid")
+    t_obs = float(time_row[-1])
+    if packet_time_grid is None:
+        packet_times = np.broadcast_to(time_row, np.asarray(dMstar_grid, dtype=float).shape)
+    else:
+        packet_times = np.asarray(packet_time_grid, dtype=float)
+    ages = np.maximum(t_obs - packet_times, 0.0)
+    kernel_final = np.asarray(evaluate_uv_luminosity_kernel(ages, uv_kernel), dtype=float)
+    return np.sum(np.asarray(dMstar_grid, dtype=float) * kernel_final, axis=1)
+
+
+def _compute_final_uv_from_mass_packets_per_halo(
+    t_grid: np.ndarray,
+    dMstar_grid: np.ndarray,
+    uv_kernel: Any,
+    packet_time_grid: np.ndarray | None = None,
+) -> np.ndarray:
+    result = np.zeros(dMstar_grid.shape[0], dtype=float)
+    for halo_index in range(dMstar_grid.shape[0]):
+        t_row = np.asarray(t_grid[halo_index], dtype=float)
+        dMstar_row = np.asarray(dMstar_grid[halo_index], dtype=float)
+        if packet_time_grid is None:
+            packet_row = t_row
+        else:
+            packet_row = np.asarray(packet_time_grid[halo_index], dtype=float)
+        ages = np.maximum(float(t_row[-1]) - packet_row, 0.0)
+        kernel_final = np.asarray(evaluate_uv_luminosity_kernel(ages, uv_kernel), dtype=float)
+        result[halo_index] = float(np.sum(dMstar_row * kernel_final))
+    return result
+
+
 def run_halo_uv_pipeline(
     n_tracks: int,
     z_final: float,
@@ -245,7 +302,6 @@ def run_halo_uv_pipeline(
         sampler=sampler,
     )
     t1 = time.perf_counter()
-    redshift_grid = np.unique(np.asarray(histories.tracks["z"], dtype=float))[::-1]
 
     sfr_tracks = compute_sfr_from_tracks(
         histories.tracks,
@@ -260,11 +316,14 @@ def run_halo_uv_pipeline(
 
     halo_ids = np.asarray(sfr_tracks["halo_id"], dtype=int)
     n_halos = np.unique(halo_ids).size
-    steps_per_halo = redshift_grid.size
+    if halo_ids.size % max(1, n_halos) != 0:
+        raise RuntimeError("sfr_tracks rows are not divisible into equal-length halo histories")
+    steps_per_halo = halo_ids.size // n_halos
     t_grid = np.asarray(sfr_tracks["t_gyr"], dtype=float).reshape(n_halos, steps_per_halo)
+    redshift_grid = np.asarray(sfr_tracks["z"], dtype=float).reshape(n_halos, steps_per_halo)[0]
     mh_grid = np.asarray(sfr_tracks["Mh"], dtype=float).reshape(n_halos, steps_per_halo)
     sfr_grid = np.asarray(sfr_tracks["SFR"], dtype=float).reshape(n_halos, steps_per_halo)
-    active_grid = np.asarray(sfr_tracks["active_flag"], dtype=bool).reshape(n_halos, steps_per_halo)
+    active_grid = np.asarray(sfr_tracks["branch_active_flag"], dtype=bool).reshape(n_halos, steps_per_halo)
 
     floor_mass = np.zeros_like(redshift_grid, dtype=float)
     active_flat = active_grid.reshape(-1)
@@ -275,9 +334,7 @@ def run_halo_uv_pipeline(
             mask = np.isclose(active_z, z_value)
             if np.any(mask):
                 floor_mass[index] = float(np.min(active_mh[mask]))
-    positive_floor = floor_mass[floor_mass > 0.0]
-    if positive_floor.size == 0:
-        raise RuntimeError("could not infer an effective M_min(z) floor from active histories")
+    has_active_histories = bool(np.any(floor_mass > 0.0))
 
     time_row = _resolve_regular_time_grid(t_grid)
     if time_row is not None:
@@ -291,13 +348,14 @@ def run_halo_uv_pipeline(
         )
         uv_convolution_method = "vectorized_final_time"
     else:
-        # The outer UVLF Monte Carlo owns parallelism over Mh samples.
-        # Keep the fallback per-mass UV convolution serial here to avoid nested process pools.
         _init_uv_worker(luv_per_msun)
         uv_luminosities = _compute_uv_chunk(
             (t_grid[0], mh_grid, sfr_grid, active_grid, ssp_age_grid_gyr, float(ssp_lookback_max_myr))
         )
         uv_convolution_method = "per_halo_fallback"
+
+    uv_luminosities = np.asarray(uv_luminosities, dtype=float)
+    muv = np.asarray(_uv_luminosity_to_muv(uv_luminosities), dtype=float)
     t3 = time.perf_counter()
 
     metadata = {
@@ -307,6 +365,7 @@ def run_halo_uv_pipeline(
         "ssp_file": str(Path(ssp_file).expanduser().resolve()),
         "enable_time_delay": enable_time_delay,
         "time_grid_mode": "uniform_in_t",
+        "has_active_histories": has_active_histories,
         "dt_gyr": float(dt_gyr),
         "burst_lookback_max_myr": float(burst_lookback_max_myr),
         "ssp_lookback_max_myr": float(ssp_lookback_max_myr),
@@ -328,9 +387,10 @@ def run_halo_uv_pipeline(
     return HaloUVPipelineResult(
         histories=histories,
         sfr_tracks=sfr_tracks,
-        uv_luminosities=np.asarray(uv_luminosities, dtype=float),
+        uv_luminosities=uv_luminosities,
         redshift_grid=redshift_grid,
         floor_mass=floor_mass,
         active_grid=active_grid,
         metadata=metadata,
+        muv=muv,
     )

@@ -54,6 +54,34 @@ def _stellar_formation_efficiency(mass: np.ndarray, model_parameters: SFRModelPa
     return 2.0 * model_parameters.epsilon_0 / denominator
 
 
+def _validate_positive_timescale(name: str, value: float) -> float:
+    timescale = float(value)
+    if not np.isfinite(timescale) or timescale <= 0.0:
+        raise ValueError(f"{name} must be a positive finite scalar")
+    return timescale
+
+
+def atomic_cooling_circular_velocity(
+    temperature_k: float = 1.0e4,
+    mu: float = 0.61,
+) -> float:
+    if float(temperature_k) <= 0.0:
+        raise ValueError("temperature_k must be positive")
+    if float(mu) <= 0.0:
+        raise ValueError("mu must be positive")
+    return float(np.sqrt(2.0 * BOLTZMANN_CONSTANT_J_K * float(temperature_k) / (float(mu) * PROTON_MASS_KG)) / 1.0e3)
+
+
+def atomic_cooling_mass_threshold(
+    redshift: float | np.ndarray,
+    mu: float = 0.61,
+    atomic_cooling_temperature: float = 1.0e4,
+    cosmology: CosmologySet | None = None,
+) -> np.ndarray:
+    v_atom = atomic_cooling_circular_velocity(temperature_k=atomic_cooling_temperature, mu=mu)
+    return virial_mass_from_circular_velocity(v_atom, redshift, cosmology=cosmology)
+
+
 def _hubble_parameter(redshift: np.ndarray, cosmology: CosmologySet) -> np.ndarray:
     return cosmology.H0u * np.sqrt(cosmology.omegam * (1.0 + redshift) ** 3 + cosmology.omegalam)
 
@@ -375,6 +403,12 @@ def compute_sfr_from_tracks(
     sigma_vbc_rms = streaming_velocity_rms(z)
     v_cool_h2 = h2_cooling_circular_velocity(z, v_bc_kms=sigma_vbc_rms)
     m_cool_h2 = minihalo_mass_floor(z, v_bc_kms=sigma_vbc_rms, cosmology=cosmo)
+    m_atom = atomic_cooling_mass_threshold(
+        z,
+        mu=mu,
+        atomic_cooling_temperature=atomic_cooling_temperature,
+        cosmology=cosmo,
+    )
     tau_del = r_vir * KM_PER_MPC / v_c / SECONDS_PER_GYR
     td_burst = np.sqrt(3.0 * np.pi / (32.0 * GRAVITATIONAL_CONSTANT_MPC_KMS2_MSUN * rho_vir))
     td_burst = td_burst * KM_PER_MPC / SECONDS_PER_GYR
@@ -395,13 +429,17 @@ def compute_sfr_from_tracks(
     fstar_now[finite_mass_now] = _stellar_formation_efficiency(mass[finite_mass_now], model_parameters)
 
     sfr = np.zeros_like(mass, dtype=float)
-    active_now = np.isfinite(mass) & np.isfinite(mdot) & (t_vir >= atomic_cooling_temperature)
+    sfr_pop2 = np.zeros_like(mass, dtype=float)
+    pop2_active_now = np.isfinite(mass) & np.isfinite(mdot) & (t_vir >= atomic_cooling_temperature)
     if enable_time_delay:
         t_grid = _reshape_grouped_regular_grid(t_gyr, boundaries)
         mdot_grid = _reshape_grouped_regular_grid(mdot, boundaries)
         td_grid = _reshape_grouped_regular_grid(td_burst, boundaries)
-        source_rate_grid = _reshape_grouped_regular_grid(fstar_now * mdot, boundaries)
-        active_grid = _reshape_grouped_regular_grid(active_now.astype(float), boundaries)
+        source_rate = np.zeros_like(mass, dtype=float)
+        valid_pop2_source = pop2_active_now & np.isfinite(fstar_now)
+        source_rate[valid_pop2_source] = fstar_now[valid_pop2_source] * mdot[valid_pop2_source]
+        source_rate_grid = _reshape_grouped_regular_grid(source_rate, boundaries)
+        active_grid = _reshape_grouped_regular_grid(pop2_active_now.astype(float), boundaries)
         if (
             t_grid is not None
             and mdot_grid is not None
@@ -431,7 +469,7 @@ def compute_sfr_from_tracks(
             mdot_burst = _compute_extended_burst_convolution(
                 t_gyr=t_gyr,
                 source_values=mdot,
-                active=active_now,
+                active=pop2_active_now,
                 boundaries=boundaries,
                 kappa=float(burst_kappa),
                 td_burst=td_burst,
@@ -439,19 +477,23 @@ def compute_sfr_from_tracks(
             )
             sfr_source_burst = _compute_extended_burst_convolution(
                 t_gyr=t_gyr,
-                source_values=fstar_now * mdot,
-                active=active_now,
+                source_values=source_rate,
+                active=pop2_active_now,
                 boundaries=boundaries,
                 kappa=float(burst_kappa),
                 td_burst=td_burst,
                 max_lookback_gyr=max_burst_lookback_gyr,
             )
-        active_burst = active_now & np.isfinite(sfr_source_burst)
-        sfr[active_burst] = baryon_fraction * sfr_source_burst[active_burst] / YEARS_PER_GYR
+        active_burst = pop2_active_now & np.isfinite(sfr_source_burst)
+        sfr_pop2[active_burst] = baryon_fraction * sfr_source_burst[active_burst] / YEARS_PER_GYR
     else:
         mdot_burst = np.full_like(mass, np.nan, dtype=float)
-        active = np.isfinite(fstar_now) & np.isfinite(mdot) & (t_vir >= atomic_cooling_temperature)
-        sfr[active] = baryon_fraction * fstar_now[active] * mdot[active] / YEARS_PER_GYR
+        active = pop2_active_now & np.isfinite(fstar_now)
+        sfr_pop2[active] = baryon_fraction * fstar_now[active] * mdot[active] / YEARS_PER_GYR
+
+    sfr = np.maximum(sfr_pop2, 0.0)
+    pop2_active_flag = pop2_active_now
+    branch_active_flag = pop2_active_flag
 
     output = {name: values.copy() for name, values in sorted_tracks.items()}
     output["r_vir"] = r_vir
@@ -460,6 +502,7 @@ def compute_sfr_from_tracks(
     output["sigma_vbc_rms"] = sigma_vbc_rms
     output["V_cool_H2"] = v_cool_h2
     output["M_cool_H2"] = m_cool_h2
+    output["M_atom"] = m_atom
     output["tau_del"] = tau_del
     output["td_burst"] = td_burst
     output["t_src"] = t_src
@@ -467,7 +510,11 @@ def compute_sfr_from_tracks(
     output["dMh_dt_src"] = mdot_src
     output["fstar_src"] = fstar_src
     output["fstar_now"] = fstar_now
+    output["pop2_active_flag"] = pop2_active_flag
+    output["branch_active_flag"] = branch_active_flag
+    output["SFR_pop2"] = np.maximum(sfr_pop2, 0.0)
     output["mdot_burst"] = mdot_burst
+    output["SFR_total"] = sfr
     output["SFR"] = sfr
     return output
 
@@ -480,6 +527,8 @@ __all__ = [
     "SFRModelParameters",
     "STREAMING_VELOCITY_RECOMBINATION_REDSHIFT",
     "STREAMING_VELOCITY_RMS_RECOMBINATION_KMS",
+    "atomic_cooling_circular_velocity",
+    "atomic_cooling_mass_threshold",
     "compute_sfr_from_tracks",
     "critical_density",
     "h2_cooling_circular_velocity",
