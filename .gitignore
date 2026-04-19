@@ -16,8 +16,5 @@ archive/
 
 *.egg-info/
 
-# Large raw datasets: keep outside the initial Git history.
-data/*.dat
-data/*.hdf5
-data/schaerer2010_pop3/
-data/universemachine_dr1/*.tar.gz
+# Large raw datasets
+data/
