@@ -5,7 +5,7 @@ from typing import Any, Iterable
 
 import numpy as np
 
-from .models import IMFSpec, resolve_pop3_imf
+from .imf import IMFSpec, resolve_pop3_imf
 from .schaerer import (
     get_schaerer_column_definition,
     load_schaerer_header_metadata,
@@ -13,9 +13,9 @@ from .schaerer import (
     parse_schaerer_model_name,
     resolve_schaerer_model_path,
 )
+from constants import SPEED_OF_LIGHT_A_PER_S
 
 
-SPEED_OF_LIGHT_A_PER_S = 2.99792458e18
 DEFAULT_POP3_IMF_NAMES = ("Sal", "logA", "logE")
 PAPER_REFERENCE = "Raiter, Schaerer & Fosbury (2010)"
 

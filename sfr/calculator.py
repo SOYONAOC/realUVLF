@@ -4,13 +4,17 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from constants import (
+    BOLTZMANN_CONSTANT_J_K,
+    GRAVITATIONAL_CONSTANT_MPC_KMS2_MSUN,
+    KM_PER_MPC,
+    PROTON_MASS_KG,
+    SECONDS_PER_GYR,
+    YEARS_PER_GYR,
+)
 from mah import CosmologySet
-from mah.models import GRAVITATIONAL_CONSTANT_MPC_KMS2_MSUN, KM_PER_MPC, SECONDS_PER_GYR
 
 
-PROTON_MASS_KG = 1.67262192369e-27
-BOLTZMANN_CONSTANT_J_K = 1.380649e-23
-YEARS_PER_GYR = 1.0e9
 EPSILON_0 = 0.12
 CHARACTERISTIC_MASS = 10.0**11.7
 BETA_STAR = 0.66

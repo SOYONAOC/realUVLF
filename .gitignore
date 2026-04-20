@@ -4,6 +4,7 @@ __pycache__/
 /*.py
 !run_uvlf_compare_imf_no_delay_all_z.py
 !replot_uvlf_imf_no_delay_compare.py
+!constants.py
 
 outputs/
 data_save/

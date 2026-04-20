@@ -9,13 +9,13 @@ from typing import Any
 import numpy as np
 from massfunc import Mass_func
 
+from constants import AB_ZEROPOINT_LNU
 from sfr import DEFAULT_SFR_MODEL_PARAMETERS, SFRModelParameters
 from .pipeline import DEFAULT_SSP_FILE, default_worker_count, run_halo_uv_pipeline
 
 
 LOGM_MIN = 9.0
 LOGM_MAX = 13.0
-AB_ZEROPOINT_LNU = 51.60
 
 
 @dataclass(frozen=True)

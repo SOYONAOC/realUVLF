@@ -24,11 +24,10 @@ from ssp import (
     interpolate_ssp_luminosity,
     load_uv1600_table,
 )
+from constants import AB_ZEROPOINT_LNU, YEARS_PER_GYR
 
 
 DEFAULT_SSP_FILE = "data_save/ssp_uv1600_topheavy_imf100_300_z0005.npz"
-YEARS_PER_GYR = 1.0e9
-AB_ZEROPOINT_LNU = 51.60
 
 
 @dataclass(frozen=True)

@@ -8,7 +8,7 @@ from typing import Any
 
 import numpy as np
 
-from .models import IMFSpec, resolve_pop3_imf
+from .imf import IMFSpec, resolve_pop3_imf
 
 
 SCHAERER_POP3_DATA_DIR = Path(__file__).resolve().parent.parent / "data" / "schaerer2010_pop3"
