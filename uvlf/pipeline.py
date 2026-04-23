@@ -24,7 +24,7 @@ from ssp import (
     interpolate_ssp_luminosity,
     load_uv1600_table,
 )
-from constants import AB_ZEROPOINT_LNU, YEARS_PER_GYR
+from mah.constants import AB_ZEROPOINT_LNU, YEARS_PER_GYR
 
 
 DEFAULT_SSP_FILE = "data_save/ssp_uv1600_topheavy_imf100_300_z0005.npz"
@@ -305,7 +305,6 @@ def run_halo_uv_pipeline(
     sfr_tracks = compute_sfr_from_tracks(
         histories.tracks,
         enable_time_delay=enable_time_delay,
-        burst_lookback_max_myr=burst_lookback_max_myr,
         model_parameters=sfr_model_parameters,
     )
     t2 = time.perf_counter()

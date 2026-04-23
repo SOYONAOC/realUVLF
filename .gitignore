@@ -14,8 +14,12 @@ kernel/jupyter.err
 
 slides/
 archive/
+temp_data/
 
 *.egg-info/
 
 # Large raw datasets
 data/
+
+# Shell scripts
+*.sh

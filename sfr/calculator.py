@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from constants import (
+from mah.constants import (
     BOLTZMANN_CONSTANT_J_K,
     GRAVITATIONAL_CONSTANT_MPC_KMS2_MSUN,
     KM_PER_MPC,
@@ -365,11 +365,8 @@ def _interpolate_grouped(
 
 def compute_sfr_from_tracks(
     tracks: dict[str, np.ndarray],
-    mu: float = 0.61,
-    atomic_cooling_temperature: float = 1.0e4,
     enable_time_delay: bool = False,
     burst_kappa: float = EXTENDED_BURST_KAPPA,
-    burst_lookback_max_myr: float = EXTENDED_BURST_LOOKBACK_MAX_MYR,
     model_parameters: SFRModelParameters | None = None,
 ) -> dict[str, np.ndarray]:
     """Compute SFR in Msun/yr and related virial quantities from halo history tracks."""
@@ -385,6 +382,9 @@ def compute_sfr_from_tracks(
             raise ValueError(f"tracks column '{name}' does not match halo_id length")
 
     model_parameters = _resolve_sfr_model_parameters(model_parameters)
+    mu = 0.61
+    atomic_cooling_temperature = 1.0e4
+    burst_lookback_max_myr = EXTENDED_BURST_LOOKBACK_MAX_MYR
     max_burst_lookback_gyr = float(burst_lookback_max_myr) / 1.0e3
     if max_burst_lookback_gyr <= 0.0:
         raise ValueError("burst_lookback_max_myr must be positive")
@@ -395,6 +395,10 @@ def compute_sfr_from_tracks(
     t_gyr = np.asarray(sorted_tracks["t_gyr"], dtype=float)
     mass = np.asarray(sorted_tracks["Mh"], dtype=float)
     mdot = np.asarray(sorted_tracks["dMh_dt"], dtype=float)
+    if "active_flag" in sorted_tracks:
+        track_active = np.asarray(sorted_tracks["active_flag"], dtype=bool)
+    else:
+        track_active = np.ones_like(mass, dtype=bool)
 
     rho_crit = critical_density(z, cosmology=cosmo)
     delta_vir = virial_overdensity(z, cosmology=cosmo)
@@ -434,7 +438,8 @@ def compute_sfr_from_tracks(
 
     sfr = np.zeros_like(mass, dtype=float)
     sfr_pop2 = np.zeros_like(mass, dtype=float)
-    pop2_active_now = np.isfinite(mass) & np.isfinite(mdot) & (t_vir >= atomic_cooling_temperature)
+    cooling_ok = t_vir >= atomic_cooling_temperature
+    pop2_active_now = track_active & np.isfinite(mass) & np.isfinite(mdot) & cooling_ok
     if enable_time_delay:
         t_grid = _reshape_grouped_regular_grid(t_gyr, boundaries)
         mdot_grid = _reshape_grouped_regular_grid(mdot, boundaries)

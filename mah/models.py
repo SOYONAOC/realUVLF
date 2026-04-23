@@ -5,7 +5,7 @@ from typing import Any
 
 import numpy as np
 
-from constants import (
+from mah.constants import (
     GRAVITATIONAL_CONSTANT_MPC_KMS2_MSUN,
     KM_PER_MPC,
     PLANCK18_H0_GYR,

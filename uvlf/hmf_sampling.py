@@ -9,7 +9,7 @@ from typing import Any
 import numpy as np
 from massfunc import Mass_func
 
-from constants import AB_ZEROPOINT_LNU
+from mah.constants import AB_ZEROPOINT_LNU
 from sfr import DEFAULT_SFR_MODEL_PARAMETERS, SFRModelParameters
 from .pipeline import DEFAULT_SSP_FILE, default_worker_count, run_halo_uv_pipeline
 

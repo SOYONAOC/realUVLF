@@ -161,7 +161,7 @@ def generate_halo_histories(
     dt: float | None = None,
     dz: float | None = 0.1,
     custom_grid: np.ndarray | None = None,
-    store_inactive_history: bool = False,
+    store_inactive_history: bool = True,
     sampler: str = "mcbride",
     pilot_samples: int = 50_000,
 ) -> HaloHistoryResult:

@@ -13,7 +13,7 @@ from .schaerer import (
     parse_schaerer_model_name,
     resolve_schaerer_model_path,
 )
-from constants import SPEED_OF_LIGHT_A_PER_S
+from mah.constants import SPEED_OF_LIGHT_A_PER_S
 
 
 DEFAULT_POP3_IMF_NAMES = ("Sal", "logA", "logE")

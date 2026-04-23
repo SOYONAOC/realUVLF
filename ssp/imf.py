@@ -85,6 +85,15 @@ _POP3_IMF_LIBRARY: dict[str, IMFSpec] = {
         lognormal_mc_msun=10.0,
         lognormal_sigma=1.0,
     ),
+    "logB": IMFSpec(
+        canonical_name="logB",
+        family="lognormal",
+        source_imf_token="logB",
+        m_low_msun=1.0,
+        m_up_msun=500.0,
+        lognormal_mc_msun=15.0,
+        lognormal_sigma=0.3,
+    ),
     "logE": IMFSpec(
         canonical_name="logE",
         family="lognormal",
@@ -93,6 +102,22 @@ _POP3_IMF_LIBRARY: dict[str, IMFSpec] = {
         m_up_msun=500.0,
         lognormal_mc_msun=60.0,
         lognormal_sigma=1.0,
+    ),
+    "l05": IMFSpec(
+        canonical_name="l05",
+        family="larson",
+        source_imf_token="l05",
+        m_low_msun=1.0,
+        m_up_msun=100.0,
+        slope=2.35,
+    ),
+    "sca": IMFSpec(
+        canonical_name="sca",
+        family="scalo",
+        source_imf_token="sca",
+        m_low_msun=1.0,
+        m_up_msun=100.0,
+        slope=2.70,
     ),
 }
 
@@ -104,9 +129,16 @@ _POP3_IMF_ALIASES = {
     "loga": "logA",
     "loga500": "logA",
     "loga_500": "logA",
+    "logb": "logB",
+    "logb500": "logB",
+    "logb_500": "logB",
     "loge": "logE",
     "loge500": "logE",
     "loge_500": "logE",
+    "larson": "l05",
+    "larson5": "l05",
+    "scalo": "sca",
+    "scalo86": "sca",
 }
 
 

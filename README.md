@@ -97,10 +97,7 @@ from sfr import compute_sfr_from_tracks
   - `t_gyr`
   - `Mh`
   - `dMh_dt`
-- `mu`
-  平均分子量，默认 `0.61`
-- `atomic_cooling_temperature`
-  原子冷却阈值，默认 `1e4 K`
+  若提供 `active_flag`，则 SFR 只会在该轨道被标记为 active 的时间段内计算
 - `enable_time_delay`
   是否启用基于 dynamical time 的 extended-burst 延迟核；默认 `False`
 - `burst_kappa`
@@ -144,6 +141,8 @@ from sfr import compute_sfr_from_tracks
   的 extended-burst 核对
   `fstar(Mh(t')) * dMh_dt(t')`
   做时间卷积
+- 原子冷却阈值始终生效，不再提供关闭开关
+- 若输入 `tracks` 含有 `active_flag`，则该标记与原子冷却阈值共同决定 `pop2_active_flag/branch_active_flag`
 - `tau_del/t_src/Mh_src/dMh_dt_src` 仍保留，作为与旧单一延迟时间口径可对照的诊断量
 - `mdot_burst` 仍保留，表示只对 `dMh/dt` 做 kernel 卷积后的诊断量；真正进入 delay-SFR 的是
   `kernel * fstar(Mh) * dMh_dt` 的积分
