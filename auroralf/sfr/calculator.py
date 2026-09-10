@@ -201,6 +201,40 @@ def _tracks_are_grouped_and_sorted(halo_id: np.ndarray, time: np.ndarray) -> boo
     return bool(np.all(time[1:][same_halo] >= time[:-1][same_halo]))
 
 
+def _compute_extended_burst_convolution_direct(
+    t_grid, source_grid, active_grid, td_burst_grid, kappa, max_lookback_gyr,
+):
+    """Uniform-time convolution with the same causal trapezoidal endpoints.
+
+    Explicit opt-in numerical backend. Uses direct positive convolution (not
+    FFT); no kernel fitting, changed window or changed physical parameters.
+    """
+    time = np.asarray(t_grid[0], float)
+    steps = np.diff(time)
+    if steps.size == 0 or np.any(steps <= 0) or not np.allclose(steps, steps[0], rtol=1e-11, atol=0):
+        raise ValueError('direct convolution requires a uniform increasing time grid')
+    dt = (time[-1]-time[0])/(len(time)-1)
+    lags = np.arange(len(time))*dt
+    # At an ambiguous floating-point cutoff, preserve the dense definition by
+    # rejecting this backend rather than silently changing kernel membership.
+    if np.any(np.abs(lags-max_lookback_gyr) < 64*np.finfo(float).eps*max(1., abs(time[-1]))):
+        raise ValueError('lookback cutoff coincides with a floating-point grid boundary')
+    result = np.zeros_like(source_grid, dtype=float)
+    for i in np.flatnonzero(np.any(active_grid, axis=1)):
+        start = int(np.flatnonzero(active_grid[i])[0])
+        td = float(td_burst_grid[i, start])
+        if not np.isfinite(td) or td <= 0 or len(time)-start < 2:
+            continue
+        lag = lags[:len(time)-start]
+        kernel = lag/(kappa**2*td**2)*np.exp(-lag/(kappa*td))
+        kernel[lag>max_lookback_gyr] = 0
+        source = np.array(source_grid[i, start:], copy=True)
+        source[0] *= .5
+        # Last integration endpoint has kernel(0)=0; first has weight 1/2.
+        result[i, start:] = dt*np.convolve(source, kernel, mode='full')[:len(source)]
+    return result
+
+
 def _prepare_track_columns(
     tracks: dict[str, np.ndarray],
 ) -> tuple[dict[str, np.ndarray], np.ndarray, np.ndarray, np.ndarray]:
@@ -319,15 +353,20 @@ def compute_sfr_from_tracks(
     burst_kappa: float = EXTENDED_BURST_KAPPA,
     burst_lookback_max_myr: float = EXTENDED_BURST_LOOKBACK_MAX_MYR,
     model_parameters: SFRModelParameters | None = None,
+    regular_convolution_backend: str = "dense",
 ) -> dict[str, np.ndarray]:
     """Compute SFR in Msun/yr and related virial quantities from halo tracks.
 
     The Pop II efficiency structure and calibrated/project-specific parameter
     boundary are documented in this module's citation provenance above.
+    ``regular_convolution_backend='direct'`` explicitly selects the equivalent
+    uniform-grid 1D convolution. Default ``dense`` remains unchanged.
     """
 
     if not isinstance(cosmology, Cosmology):
         raise TypeError("cosmology must be an instance of auroralf.mah.models.Cosmology")
+    if regular_convolution_backend not in ('dense', 'direct'):
+        raise ValueError('unknown regular_convolution_backend')
 
     required = (
         "halo_id",
@@ -421,7 +460,9 @@ def compute_sfr_from_tracks(
             and np.all(np.isfinite(t_grid))
             and np.allclose(t_grid, t_grid[0], rtol=0.0, atol=0.0)
         ):
-            mdot_burst = _compute_extended_burst_convolution_vectorized_regular_grid(
+            convolver = (_compute_extended_burst_convolution_direct if regular_convolution_backend == 'direct'
+                         else _compute_extended_burst_convolution_vectorized_regular_grid)
+            mdot_burst = convolver(
                 t_grid=t_grid,
                 source_grid=mdot_grid,
                 active_grid=active_grid.astype(bool),
@@ -429,7 +470,7 @@ def compute_sfr_from_tracks(
                 kappa=float(burst_kappa),
                 max_lookback_gyr=max_burst_lookback_gyr,
             ).reshape(-1)
-            sfr_source_burst = _compute_extended_burst_convolution_vectorized_regular_grid(
+            sfr_source_burst = convolver(
                 t_grid=t_grid,
                 source_grid=source_rate_grid,
                 active_grid=active_grid.astype(bool),
@@ -438,6 +479,8 @@ def compute_sfr_from_tracks(
                 max_lookback_gyr=max_burst_lookback_gyr,
             ).reshape(-1)
         else:
+            if regular_convolution_backend == 'direct':
+                raise ValueError('direct convolution requires grouped shared time grids')
             mdot_burst = _compute_extended_burst_convolution(
                 t_gyr=t_gyr,
                 source_values=mdot,

@@ -1,0 +1,11 @@
+experiment = "AUR-EX-0006"
+run = "AUR-EX-0006-R001"
+source_root = "/home/zhuhourui/AstroCode/AuroraLF"
+z = 14.5
+fstar = 0.1
+duties = [0.01, 0.03, 0.1]
+csfr_age_myr = 100.0
+full_run = "AUR-EX-0001-R021"
+low_run = "AUR-EX-0001-R024"
+output = "data_save/AUR-EX-0006-R001"
+

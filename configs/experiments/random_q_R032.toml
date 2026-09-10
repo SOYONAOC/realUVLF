@@ -1,0 +1,19 @@
+# cp6 single-batch scheduling attempt; same seed/sample as R028-R031.
+run_id = "AUR-EX-0006-R032"
+z = 12.5
+n_mass = 3600
+n_tracks = 1000
+track_chunk = 100
+n_grid = 960
+workers = 56
+seed = 610228
+z_start = 50.0
+logmass_min = 5.0
+logmass_max = 12.0
+q_log10_mean = 0.5
+q_log10_sigma = 1.5
+efficiencies = [0.001, 0.005, 0.01, 0.03, 0.1]
+lookback_myr = 100.0
+sfr_convolution = "direct"
+popii_ssp = "../../external_data/ssp_spectra/bpass_byrne23_imf135_300/BASEL/spectra-bin-imf135_300.BASEL.z001.a+00.dat"
+popiii_ssp = "../../external_data/ssp_spectra/schaerer2010_pop3/pop3_ge0_logE_500_001_is5.25"

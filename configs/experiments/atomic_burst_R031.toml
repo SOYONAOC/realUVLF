@@ -1,0 +1,19 @@
+# AUR-EX-0006 sampling inputs; duty postprocessing remains in isolated worktree.
+run_id = "AUR-EX-0006-R006"
+redshifts = [14.5]
+N_mass = 3600
+n_tracks = 1000
+n_grid = 960
+workers = 40
+base_seed = 610102
+z_start_max = 50.0
+logM_max = 7.983922271900568
+fiducial_efficiency = 0.01
+efficiencies = [0.001, 0.005, 0.01, 0.03, 0.1]
+muv_min = -24.0
+muv_max = -8.0
+muv_bin_width = 0.5
+min_raw_counts = 8
+popiii_imf_model = "logE"
+popii_ssp = "../../external_data/ssp_spectra/bpass_byrne23_imf135_300/BASEL/spectra-bin-imf135_300.BASEL.z001.a+00.dat"
+popiii_ssp = "../../external_data/ssp_spectra/schaerer2010_pop3/pop3_ge0_logE_500_001_is5.25"

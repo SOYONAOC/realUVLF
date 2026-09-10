@@ -1,5 +1,12 @@
 # AuroraLF
 
+Numerical opt-in (random-q experiment): `compute_sfr_from_tracks` accepts
+`regular_convolution_backend="direct"` for shared uniform time grids. This uses
+one-dimensional direct convolution with the original causal kernel and trapezoidal
+endpoint weights; the default remains `"dense"`. Nonuniform grids and ambiguous
+lookback/grid coincidences explicitly error in this opt-in backend. No SFR
+parameters or physical windows are changed.
+
 ## v2 typed API
 
 AuroraLF v2 exposes one strict configuration boundary and one in-memory run
