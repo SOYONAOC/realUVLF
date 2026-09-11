@@ -1,11 +1,14 @@
 experiment = "AUR-EX-0006"
 run = "AUR-EX-0006-R001"
-source_root = "/home/zhuhourui/AstroCode/AuroraLF"
+source_root = "../.."
 z = 14.5
 fstar = 0.1
 duties = [0.01, 0.03, 0.1]
 csfr_age_myr = 100.0
 full_run = "AUR-EX-0001-R021"
 low_run = "AUR-EX-0001-R024"
-output = "data_save/AUR-EX-0006-R001"
-
+output = "../../data_save/AUR-EX-0006-R001"
+samples_root = "../../data_save/supercomputer_tracks1000_20260907"
+baseline = "../../data_save/popiii_available_tracks_20260907/uvlf.npz"
+popiii_ssp = "../../external_data/ssp_spectra/schaerer2010_pop3/pop3_ge0_logE_500_001_is5.25"
+observations = "../../external_data/observations/uvlf"

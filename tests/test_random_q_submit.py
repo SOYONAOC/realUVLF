@@ -16,7 +16,8 @@ def test_science_array_without_preflight(tmp_path, monkeypatch, apply,count):
     monkeypatch.setattr(submit, 'ROOT', tmp_path)
     writes = []
 
-    def fake_ssh(command):
+    def fake_ssh(command, *, host):
+        assert host == "sc"
         if command.startswith('sinfo '):
             return 'fixture-node|idle|56|0/56/0/56\n'
         if command.startswith('squeue '):

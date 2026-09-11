@@ -27,6 +27,7 @@ analysis = [
 ]
 test = [
   "pytest==9.0.2",
+  "ruff==0.15.7",
 ]
 slides = [
   "matplotlib==3.10.8",
@@ -37,3 +38,31 @@ include = ["auroralf*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+# Adopt formatting incrementally for maintained experiment workflows.
+include = [
+  "auroralf/experiments/*.py",
+  "scripts/experiments/random_q_burst.py",
+  "scripts/run/run_random_q_burst.py",
+  "scripts/submit/submit_random_q.py",
+  "scripts/submit/submit_random_q_fat2.py",
+  "scripts/analysis/visbal_duty_uvlf.py",
+  "scripts/analysis/combine_visbal_batches.py",
+  "scripts/analysis/analyze_random_q.py",
+  "scripts/analysis/analyze_random_q_heii.py",
+  "scripts/analysis/compare_random_q_heii_observations.py",
+  "scripts/analysis/merge_random_q_shards.py",
+  "tests/test_experiment_workflows.py",
+  "tests/test_random_q_heii.py",
+  "tests/test_heii_observation_comparison.py",
+]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]
+
+[tool.ruff.lint.per-file-ignores]
+# BLAS thread limits must be applied before importing NumPy in spawned workers.
+"scripts/run/run_random_q_burst.py" = ["E402"]

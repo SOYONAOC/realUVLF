@@ -17,7 +17,7 @@ from contextlib import nullcontext
 from dataclasses import dataclass
 from numbers import Integral, Real
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 
 import numpy as np
 from hmf import MassFunction
@@ -35,6 +35,7 @@ from auroralf.model_options import (
 )
 from auroralf.chemistry import MZRBirthMetallicityParameters, RegulatorMetallicityParameters
 from auroralf.seeding import (
+    PipelineRandomSeeds,
     derive_hmf_mass_seed,
     derive_pipeline_random_seeds,
 )
@@ -440,84 +441,86 @@ def _finite_median_or_none(values: np.ndarray) -> float | None:
     return float(np.median(finite))
 
 
-def _run_single_mass_sample(args: tuple[Any, ...]) -> tuple[Any, ...]:
-    (
-        mass_index,
-        log_mass,
-        mass,
-        weight,
-        z_obs,
-        n_tracks,
-        z_start_max,
-        n_grid,
-        sampler,
-        mah_backend,
-        tng_mah_cache_path,
-        tng_mass_bin_width_dex,
-        tng_min_candidates,
-        tng_smoothing_myr,
-        tng_time_grid_mode,
-        thesan_mah_cache_path,
-        thesan_mass_bin_width_dex,
-        thesan_min_candidates,
-        thesan_smoothing_myr,
-        thesan_time_grid_mode,
-        enable_time_delay,
-        ssp_file,
-        topheavy_ssp_file,
-        topheavy_ssp_metallicity,
-        imf_mode,
-        imf_transition_parameters,
-        random_seeds,
-        sfr_model_parameters,
-        mzr_metallicity_parameters,
-        regulator_metallicity_parameters,
-        burst_scatter_dex,
-        burst_scatter_timescale_myr,
-        burst_scatter_preserve_mean,
-        enable_popiii,
-        popiii_sfr_parameters,
-        popiii_ssp_file,
-        cosmology,
-    ) = args
+class _MassSampleTask(NamedTuple):
+    """Named, spawn-picklable inputs for the compatibility sampler."""
 
+    mass_index: int
+    log_mass: float
+    mass: float
+    weight: float
+    z_obs: float
+    n_tracks: int
+    z_start_max: float
+    n_grid: int
+    sampler: str
+    mah_backend: str
+    tng_mah_cache_path: str | Path | None
+    tng_mass_bin_width_dex: float
+    tng_min_candidates: int
+    tng_smoothing_myr: float
+    tng_time_grid_mode: str
+    thesan_mah_cache_path: str | Path | None
+    thesan_mass_bin_width_dex: float
+    thesan_min_candidates: int
+    thesan_smoothing_myr: float
+    thesan_time_grid_mode: str
+    enable_time_delay: bool
+    ssp_file: str
+    topheavy_ssp_file: str | None
+    topheavy_ssp_metallicity: float | None
+    imf_mode: str
+    imf_transition_parameters: IMFTransitionParameters
+    random_seeds: PipelineRandomSeeds
+    sfr_model_parameters: SFRModelParameters
+    mzr_metallicity_parameters: MZRBirthMetallicityParameters | None
+    regulator_metallicity_parameters: RegulatorMetallicityParameters | None
+    burst_scatter_dex: float
+    burst_scatter_timescale_myr: float
+    burst_scatter_preserve_mean: bool
+    enable_popiii: bool
+    popiii_sfr_parameters: PopIIISFRParameters
+    popiii_ssp_file: str
+    cosmology: Cosmology
+
+
+def _run_single_mass_sample(task: _MassSampleTask) -> tuple[Any, ...]:
     t0 = time.perf_counter()
     pipeline_result = run_halo_uv_pipeline(
-        n_tracks=n_tracks,
-        z_final=z_obs,
-        Mh_final=float(mass),
-        cosmology=cosmology,
-        random_seeds=random_seeds,
-        z_start_max=z_start_max,
-        n_grid=n_grid,
-        sampler=sampler,
-        mah_backend=mah_backend,
-        tng_mah_cache_path=tng_mah_cache_path,
-        tng_mass_bin_width_dex=tng_mass_bin_width_dex,
-        tng_min_candidates=tng_min_candidates,
-        tng_smoothing_myr=tng_smoothing_myr,
-        tng_time_grid_mode=tng_time_grid_mode,
-        thesan_mah_cache_path=thesan_mah_cache_path,
-        thesan_mass_bin_width_dex=thesan_mass_bin_width_dex,
-        thesan_min_candidates=thesan_min_candidates,
-        thesan_smoothing_myr=thesan_smoothing_myr,
-        thesan_time_grid_mode=thesan_time_grid_mode,
-        enable_time_delay=enable_time_delay,
+        n_tracks=task.n_tracks,
+        z_final=task.z_obs,
+        Mh_final=float(task.mass),
+        cosmology=task.cosmology,
+        random_seeds=task.random_seeds,
+        z_start_max=task.z_start_max,
+        n_grid=task.n_grid,
+        sampler=task.sampler,
+        mah_backend=task.mah_backend,
+        tng_mah_cache_path=task.tng_mah_cache_path,
+        tng_mass_bin_width_dex=task.tng_mass_bin_width_dex,
+        tng_min_candidates=task.tng_min_candidates,
+        tng_smoothing_myr=task.tng_smoothing_myr,
+        tng_time_grid_mode=task.tng_time_grid_mode,
+        thesan_mah_cache_path=task.thesan_mah_cache_path,
+        thesan_mass_bin_width_dex=task.thesan_mass_bin_width_dex,
+        thesan_min_candidates=task.thesan_min_candidates,
+        thesan_smoothing_myr=task.thesan_smoothing_myr,
+        thesan_time_grid_mode=task.thesan_time_grid_mode,
+        enable_time_delay=task.enable_time_delay,
         workers=1,
-        ssp_file=ssp_file,
-        topheavy_ssp_file=topheavy_ssp_file,
-        topheavy_ssp_metallicity=topheavy_ssp_metallicity,
-        imf_mode=imf_mode,
-        imf_transition_parameters=imf_transition_parameters,
-        sfr_model_parameters=sfr_model_parameters,
-        mzr_metallicity_parameters=mzr_metallicity_parameters,
-        regulator_metallicity_parameters=regulator_metallicity_parameters,
-        burst_scatter_dex=burst_scatter_dex,
-        burst_scatter_timescale_myr=burst_scatter_timescale_myr,
-        burst_scatter_preserve_mean=burst_scatter_preserve_mean,
-        enable_popiii=enable_popiii,
-        popiii_sfr_parameters=popiii_sfr_parameters,
-        popiii_ssp_file=popiii_ssp_file,
+        ssp_file=task.ssp_file,
+        topheavy_ssp_file=task.topheavy_ssp_file,
+        topheavy_ssp_metallicity=task.topheavy_ssp_metallicity,
+        imf_mode=task.imf_mode,
+        imf_transition_parameters=task.imf_transition_parameters,
+        sfr_model_parameters=task.sfr_model_parameters,
+        mzr_metallicity_parameters=task.mzr_metallicity_parameters,
+        regulator_metallicity_parameters=task.regulator_metallicity_parameters,
+        burst_scatter_dex=task.burst_scatter_dex,
+        burst_scatter_timescale_myr=task.burst_scatter_timescale_myr,
+        burst_scatter_preserve_mean=task.burst_scatter_preserve_mean,
+        enable_popiii=task.enable_popiii,
+        popiii_sfr_parameters=task.popiii_sfr_parameters,
+        popiii_ssp_file=task.popiii_ssp_file,
     )
     duration = time.perf_counter() - t0
     luminosity = np.asarray(pipeline_result.uv_luminosities, dtype=float)
@@ -533,17 +536,17 @@ def _run_single_mass_sample(args: tuple[Any, ...]) -> tuple[Any, ...]:
     if sfr_grid.size != int(np.prod(active_shape)):
         raise RuntimeError("run_halo_uv_pipeline returned an unexpected SFR grid size")
     sfr = sfr_grid.reshape(active_shape)[:, -1]
-    if sfr.size != n_tracks:
+    if sfr.size != task.n_tracks:
         raise RuntimeError("run_halo_uv_pipeline returned an unexpected number of SFR samples")
     popiii_sfr_grid = np.asarray(pipeline_result.sfr_tracks["SFR_popiii"], dtype=float)
     if popiii_sfr_grid.size != int(np.prod(active_shape)):
         raise RuntimeError("run_halo_uv_pipeline returned an unexpected Pop III SFR grid size")
     popiii_sfr = popiii_sfr_grid.reshape(active_shape)[:, -1]
-    if popiii_sfr.size != n_tracks:
+    if popiii_sfr.size != task.n_tracks:
         raise RuntimeError("run_halo_uv_pipeline returned an unexpected number of Pop III SFR samples")
     return (
-        mass_index,
-        log_mass,
+        task.mass_index,
+        task.log_mass,
         luminosity,
         sfr,
         topheavy_light_fraction,
@@ -563,6 +566,58 @@ def _run_single_mass_sample(args: tuple[Any, ...]) -> tuple[Any, ...]:
         else np.nan,
     )
 
+
+def _build_sample_histogram(
+    histogram_values: np.ndarray, sample_weight: np.ndarray,
+    *, quantity: str, bin_edges: np.ndarray,
+) -> dict[str, np.ndarray]:
+    """Bin samples with the historical raw, weighted and squared-weight estimator."""
+    valid_mask = np.isfinite(histogram_values) & np.isfinite(sample_weight)
+    if quantity == "luminosity":
+        valid_mask &= histogram_values > 0.0
+
+    weighted_counts, used_edges = np.histogram(
+        histogram_values[valid_mask],
+        bins=bin_edges,
+        weights=sample_weight[valid_mask],
+    )
+    raw_counts, raw_edges = np.histogram(
+        histogram_values[valid_mask],
+        bins=bin_edges,
+    )
+    if not np.allclose(used_edges, raw_edges, rtol=0.0, atol=0.0):
+        raise RuntimeError("weighted and raw histogram bin edges differ")
+    weight_squared_counts, squared_edges = np.histogram(
+        histogram_values[valid_mask],
+        bins=bin_edges,
+        weights=np.square(sample_weight[valid_mask]),
+    )
+    if not np.allclose(used_edges, squared_edges, rtol=0.0, atol=0.0):
+        raise RuntimeError("weighted and squared-weight histogram bin edges differ")
+    bin_width = np.diff(used_edges)
+    phi = weighted_counts / bin_width
+    weighted_count_sigma = np.sqrt(weight_squared_counts)
+    phi_sigma = weighted_count_sigma / bin_width
+    effective_counts = np.divide(
+        np.square(weighted_counts),
+        weight_squared_counts,
+        out=np.zeros_like(weighted_counts, dtype=float),
+        where=weight_squared_counts > 0.0,
+    )
+    bin_centers = 0.5 * (used_edges[:-1] + used_edges[1:])
+    return {
+        "quantity": np.array([quantity]),
+        "bin_edges": used_edges,
+        "bin_centers": bin_centers,
+        "bin_width": bin_width,
+        "raw_counts": raw_counts.astype(np.int64),
+        "weighted_counts": weighted_counts,
+        "weight_squared_counts": weight_squared_counts,
+        "weighted_count_sigma": weighted_count_sigma,
+        "effective_counts": effective_counts,
+        "phi": phi,
+        "phi_sigma": phi_sigma,
+    }
 
 def sample_uvlf_from_hmf(
     z_obs: float,
@@ -763,44 +818,44 @@ def sample_uvlf_from_hmf(
 
     progress_stride = max(1, N_mass // 100)
     tasks = [
-        (
-            mass_index,
-            float(log_mass),
-            float(mass),
-            float(weight),
-            float(z_obs),
-            int(n_tracks),
-            float(z_start_max),
-            int(n_grid),
-            sampler,
-            mah_backend,
-            None if tng_mah_cache_path is None else str(tng_mah_cache_path),
-            float(tng_mass_bin_width_dex),
-            int(tng_min_candidates),
-            float(tng_smoothing_myr),
-            str(tng_time_grid_mode),
-            None if thesan_mah_cache_path is None else str(thesan_mah_cache_path),
-            float(thesan_mass_bin_width_dex),
-            int(thesan_min_candidates),
-            float(thesan_smoothing_myr),
-            str(thesan_time_grid_mode),
-            bool(enable_time_delay),
-            ssp_file,
-            str(topheavy_ssp_file),
-            topheavy_ssp_metallicity,
-            imf_mode,
-            imf_transition_parameters,
-            pipeline_random_seeds_by_mass[mass_index],
-            sfr_model_parameters,
-            mzr_metallicity_parameters,
-            regulator_metallicity_parameters,
-            float(burst_scatter_dex),
-            float(burst_scatter_timescale_myr),
-            bool(burst_scatter_preserve_mean),
-            bool(enable_popiii),
-            popiii_sfr_parameters,
-            str(popiii_ssp_file),
-            cosmology,
+        _MassSampleTask(
+            mass_index=mass_index,
+            log_mass=float(log_mass),
+            mass=float(mass),
+            weight=float(weight),
+            z_obs=float(z_obs),
+            n_tracks=int(n_tracks),
+            z_start_max=float(z_start_max),
+            n_grid=int(n_grid),
+            sampler=sampler,
+            mah_backend=mah_backend,
+            tng_mah_cache_path=None if tng_mah_cache_path is None else str(tng_mah_cache_path),
+            tng_mass_bin_width_dex=float(tng_mass_bin_width_dex),
+            tng_min_candidates=int(tng_min_candidates),
+            tng_smoothing_myr=float(tng_smoothing_myr),
+            tng_time_grid_mode=str(tng_time_grid_mode),
+            thesan_mah_cache_path=None if thesan_mah_cache_path is None else str(thesan_mah_cache_path),
+            thesan_mass_bin_width_dex=float(thesan_mass_bin_width_dex),
+            thesan_min_candidates=int(thesan_min_candidates),
+            thesan_smoothing_myr=float(thesan_smoothing_myr),
+            thesan_time_grid_mode=str(thesan_time_grid_mode),
+            enable_time_delay=bool(enable_time_delay),
+            ssp_file=ssp_file,
+            topheavy_ssp_file=str(topheavy_ssp_file),
+            topheavy_ssp_metallicity=topheavy_ssp_metallicity,
+            imf_mode=imf_mode,
+            imf_transition_parameters=imf_transition_parameters,
+            random_seeds=pipeline_random_seeds_by_mass[mass_index],
+            sfr_model_parameters=sfr_model_parameters,
+            mzr_metallicity_parameters=mzr_metallicity_parameters,
+            regulator_metallicity_parameters=regulator_metallicity_parameters,
+            burst_scatter_dex=float(burst_scatter_dex),
+            burst_scatter_timescale_myr=float(burst_scatter_timescale_myr),
+            burst_scatter_preserve_mean=bool(burst_scatter_preserve_mean),
+            enable_popiii=bool(enable_popiii),
+            popiii_sfr_parameters=popiii_sfr_parameters,
+            popiii_ssp_file=str(popiii_ssp_file),
+            cosmology=cosmology,
         )
         for mass_index, (log_mass, mass, weight) in enumerate(zip(logMh, Mh, mass_weight, strict=True))
     ]
@@ -895,39 +950,9 @@ def sample_uvlf_from_hmf(
         histogram_values = sample_Muv
 
     bin_edges = _resolve_bin_edges(histogram_values, quantity=quantity, bins=bins)
-    valid_mask = np.isfinite(histogram_values) & np.isfinite(sample_sample_weight)
-    if quantity == "luminosity":
-        valid_mask &= histogram_values > 0.0
-
-    weighted_counts, used_edges = np.histogram(
-        histogram_values[valid_mask],
-        bins=bin_edges,
-        weights=sample_sample_weight[valid_mask],
+    uvlf = _build_sample_histogram(
+        histogram_values, sample_sample_weight, quantity=quantity, bin_edges=bin_edges,
     )
-    raw_counts, raw_edges = np.histogram(
-        histogram_values[valid_mask],
-        bins=bin_edges,
-    )
-    if not np.allclose(used_edges, raw_edges, rtol=0.0, atol=0.0):
-        raise RuntimeError("weighted and raw histogram bin edges differ")
-    weight_squared_counts, squared_edges = np.histogram(
-        histogram_values[valid_mask],
-        bins=bin_edges,
-        weights=np.square(sample_sample_weight[valid_mask]),
-    )
-    if not np.allclose(used_edges, squared_edges, rtol=0.0, atol=0.0):
-        raise RuntimeError("weighted and squared-weight histogram bin edges differ")
-    bin_width = np.diff(used_edges)
-    phi = weighted_counts / bin_width
-    weighted_count_sigma = np.sqrt(weight_squared_counts)
-    phi_sigma = weighted_count_sigma / bin_width
-    effective_counts = np.divide(
-        np.square(weighted_counts),
-        weight_squared_counts,
-        out=np.zeros_like(weighted_counts, dtype=float),
-        where=weight_squared_counts > 0.0,
-    )
-    bin_centers = 0.5 * (used_edges[:-1] + used_edges[1:])
     total_seconds = time.perf_counter() - t0
 
     samples = {
@@ -946,19 +971,6 @@ def sample_uvlf_from_hmf(
         "popiii_minimum_mass_msun": sample_popiii_minimum_mass_msun,
         "Muv": sample_Muv,
         "sample_weight": sample_sample_weight,
-    }
-    uvlf = {
-        "quantity": np.array([quantity]),
-        "bin_edges": used_edges,
-        "bin_centers": bin_centers,
-        "bin_width": bin_width,
-        "raw_counts": raw_counts.astype(np.int64),
-        "weighted_counts": weighted_counts,
-        "weight_squared_counts": weight_squared_counts,
-        "weighted_count_sigma": weighted_count_sigma,
-        "effective_counts": effective_counts,
-        "phi": phi,
-        "phi_sigma": phi_sigma,
     }
     metadata = {
         "z_obs": z_obs,

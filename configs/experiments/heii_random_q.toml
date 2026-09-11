@@ -1,0 +1,24 @@
+# Post-processing existing realizations; no new histories or scheduler jobs.
+uv_ssp = "../../external_data/ssp_spectra/schaerer2010_pop3/pop3_ge0_logE_500_001_is5.25"
+# Frozen calculation used a CDS-extracted copy with a different text header.
+executed_uv_ssp = "../../../AuroraLF-visbal-duty/external_data/ssp_spectra/schaerer2010_pop3/pop3_ge0_logE_500_001_is5.25"
+line_ssp = "../../external_data/ssp_spectra/schaerer2010_pop3/pop3_ge0_logE_500_001_is5.22"
+output = "../../data_save/heii_random_q_20260910"
+figures = "../../slides/heii_random_q_20260910/assets"
+efficiencies = [0.01, 0.03, 0.1]
+reference_efficiency = 0.03
+uv_cut = -20.0
+flux_cuts = [1e-20, 1e-19, 1e-18]
+
+[[cases]]
+z = 12.5
+runs = ["../../../AuroraLF-visbal-duty/data_save/random_q_20260909/AUR-EX-0006-R032"]
+
+[[cases]]
+z = 14.5
+runs = [
+  "../../../AuroraLF-visbal-duty/data_save/random_q_20260909/AUR-EX-0006-R024",
+  "../../../AuroraLF-visbal-duty/data_save/random_q_20260909/AUR-EX-0006-R025",
+  "../../../AuroraLF-visbal-duty/data_save/random_q_20260909/AUR-EX-0006-R026",
+  "../../../AuroraLF-visbal-duty/data_save/random_q_20260909/AUR-EX-0006-R027",
+]

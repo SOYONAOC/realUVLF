@@ -1,0 +1,5 @@
+# Site placement only; scientific parameters remain in configs/experiments/.
+host = "sc"
+user = "xuelei"
+release_root = "/fs2/home/xuelei/zhuhr/AuroraLF/releases"
+python_environment = "/fs2/home/xuelei/zhuhr/AuroraLF/releases/atomic-memory-20260907-01/.venv"

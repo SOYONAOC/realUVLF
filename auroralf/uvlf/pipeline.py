@@ -673,6 +673,143 @@ def evaluate_shared_halo_batch(
     )
 
 
+def _population_metadata(
+    shared: SharedHaloBatch,
+    evaluation: HaloModeEvaluation,
+    kernels: LoadedSSPKernels,
+    *,
+    worker_count: int,
+    topheavy_ssp_metallicity: float | None,
+    enable_popiii: bool,
+    popiii_sfr_parameters: PopIIISFRParameters,
+    mode: str,
+    imf_transition_parameters: IMFTransitionParameters,
+) -> dict[str, object]:
+    """Describe population selection and luminosity diagnostics for a prepared batch."""
+    starforming = shared.starforming_grid
+    positive_light = evaluation.uv_luminosity_erg_per_s_hz > 0.0
+    candidate_count = int(
+        np.count_nonzero(evaluation.candidate_topheavy_source_grid & starforming)
+    )
+    return {
+        "n_tracks": shared.time_gyr_grid.shape[0],
+        "steps_per_halo": shared.time_gyr_grid.shape[1],
+        "workers": max(1, worker_count),
+        "ssp_file": str(kernels.canonical_ssp_path),
+        "canonical_ssp_file": str(kernels.canonical_ssp_path),
+        "topheavy_ssp_file": str(kernels.topheavy_ssp_path),
+        "topheavy_ssp_metallicity": topheavy_ssp_metallicity,
+        "popiii_enabled": bool(enable_popiii),
+        "popiii_ssp_file": str(kernels.popiii_ssp_path),
+        "popiii_sfr_parameters": popiii_sfr_parameters.as_metadata(),
+        "imf_mode": mode,
+        "imf_transition_parameters": {
+            "z_topheavy_min": float(imf_transition_parameters.z_topheavy_min),
+            "source_redshift_gate_enabled": bool(
+                imf_transition_parameters.source_redshift_gate_enabled
+            ),
+            "growth_time_threshold_myr": float(
+                imf_transition_parameters.growth_time_threshold_myr
+            ),
+            "metallicity_topheavy_max_zsun": (
+                None
+                if imf_transition_parameters.metallicity_topheavy_max_zsun is None
+                else float(imf_transition_parameters.metallicity_topheavy_max_zsun)
+            ),
+        },
+        "metallicity_topheavy_gate_applied": (
+            mode != IMF_MODE_CANONICAL
+            and imf_transition_parameters.metallicity_topheavy_max_zsun is not None
+        ),
+        "topheavy_candidate_source_fraction": (
+            float(np.mean(evaluation.candidate_topheavy_source_grid[starforming]))
+            if np.any(starforming)
+            else 0.0
+        ),
+        "topheavy_candidate_source_count": candidate_count,
+        "topheavy_source_fraction": (
+            evaluation.topheavy_source_count / evaluation.starforming_source_count
+            if evaluation.starforming_source_count > 0
+            else 0.0
+        ),
+        "topheavy_source_count": evaluation.topheavy_source_count,
+        "starforming_source_count": evaluation.starforming_source_count,
+        "topheavy_light_fraction_median": (
+            float(np.median(evaluation.topheavy_light_fraction[positive_light]))
+            if np.any(positive_light)
+            else 0.0
+        ),
+        "popiii_source_fraction": (
+            evaluation.popiii_source_count / evaluation.active_source_count
+            if evaluation.active_source_count > 0
+            else 0.0
+        ),
+        "popiii_source_count": evaluation.popiii_source_count,
+        "active_source_count": evaluation.active_source_count,
+        "popiii_light_fraction_median": (
+            float(np.median(evaluation.popiii_light_fraction[positive_light]))
+            if np.any(positive_light)
+            else 0.0
+        ),
+        "popiii_luminosity_median": float(
+            np.median(evaluation.popiii_uv_luminosity_erg_per_s_hz)
+        ),
+    }
+
+
+def _build_compatibility_result(
+    shared: SharedHaloBatch,
+    evaluation: HaloModeEvaluation,
+    mutable_histories: HaloHistoryResult,
+    mutable_sfr_tracks: dict[str, np.ndarray],
+    metadata: dict[str, object],
+) -> HaloUVPipelineResult:
+    """Return independently mutable arrays at the historical public API boundary."""
+    return HaloUVPipelineResult(
+        histories=mutable_histories,
+        sfr_tracks=mutable_sfr_tracks,
+        uv_luminosities=np.array(evaluation.uv_luminosity_erg_per_s_hz, copy=True),
+        uv_luminosities_canonical=np.array(
+            evaluation.canonical_uv_luminosity_erg_per_s_hz,
+            copy=True,
+        ),
+        uv_luminosities_topheavy=np.array(
+            evaluation.topheavy_uv_luminosity_erg_per_s_hz,
+            copy=True,
+        ),
+        uv_luminosities_popiii=np.array(
+            evaluation.popiii_uv_luminosity_erg_per_s_hz,
+            copy=True,
+        ),
+        redshift_grid=np.array(shared.redshift_grid, copy=True),
+        floor_mass=np.array(shared.floor_mass_msun, copy=True),
+        active_grid=np.array(shared.active_grid, copy=True),
+        imf_topheavy_source_grid=np.array(evaluation.topheavy_source_grid, copy=True),
+        popiii_source_grid=np.array(shared.popiii_source_grid, copy=True),
+        metadata=metadata,
+        gas_metallicity_zsun_grid=(
+            None
+            if shared.gas_metallicity_zsun_grid is None
+            else np.array(shared.gas_metallicity_zsun_grid, copy=True)
+        ),
+        birth_metallicity_zsun_grid=(
+            None
+            if shared.birth_metallicity_zsun_grid is None
+            else np.array(shared.birth_metallicity_zsun_grid, copy=True)
+        ),
+        metal_mass_grid=(
+            None
+            if shared.metal_mass_msun_grid is None
+            else np.array(shared.metal_mass_msun_grid, copy=True)
+        ),
+        gas_mass_grid=(
+            None
+            if shared.gas_mass_msun_grid is None
+            else np.array(shared.gas_mass_msun_grid, copy=True)
+        ),
+    )
+
+
 def run_halo_uv_pipeline(
     n_tracks: int,
     z_final: float,
@@ -787,74 +924,17 @@ def run_halo_uv_pipeline(
     )
     histories_metadata = mutable_histories.metadata
     starforming = shared.starforming_grid
-    positive_light = evaluation.uv_luminosity_erg_per_s_hz > 0.0
-    candidate_count = int(
-        np.count_nonzero(evaluation.candidate_topheavy_source_grid & starforming)
-    )
     gas_metallicity = shared.gas_metallicity_zsun_grid
     birth_metallicity = shared.birth_metallicity_zsun_grid
     metadata = {
-        "n_tracks": shared.time_gyr_grid.shape[0],
-        "steps_per_halo": shared.time_gyr_grid.shape[1],
-        "workers": max(1, worker_count),
-        "ssp_file": str(kernels.canonical_ssp_path),
-        "canonical_ssp_file": str(kernels.canonical_ssp_path),
-        "topheavy_ssp_file": str(kernels.topheavy_ssp_path),
-        "topheavy_ssp_metallicity": topheavy_ssp_metallicity,
-        "popiii_enabled": bool(enable_popiii),
-        "popiii_ssp_file": str(kernels.popiii_ssp_path),
-        "popiii_sfr_parameters": popiii_sfr_parameters.as_metadata(),
-        "imf_mode": mode,
-        "imf_transition_parameters": {
-            "z_topheavy_min": float(imf_transition_parameters.z_topheavy_min),
-            "source_redshift_gate_enabled": bool(
-                imf_transition_parameters.source_redshift_gate_enabled
-            ),
-            "growth_time_threshold_myr": float(
-                imf_transition_parameters.growth_time_threshold_myr
-            ),
-            "metallicity_topheavy_max_zsun": (
-                None
-                if imf_transition_parameters.metallicity_topheavy_max_zsun is None
-                else float(imf_transition_parameters.metallicity_topheavy_max_zsun)
-            ),
-        },
-        "metallicity_topheavy_gate_applied": (
-            mode != IMF_MODE_CANONICAL
-            and imf_transition_parameters.metallicity_topheavy_max_zsun is not None
-        ),
-        "topheavy_candidate_source_fraction": (
-            float(np.mean(evaluation.candidate_topheavy_source_grid[starforming]))
-            if np.any(starforming)
-            else 0.0
-        ),
-        "topheavy_candidate_source_count": candidate_count,
-        "topheavy_source_fraction": (
-            evaluation.topheavy_source_count / evaluation.starforming_source_count
-            if evaluation.starforming_source_count > 0
-            else 0.0
-        ),
-        "topheavy_source_count": evaluation.topheavy_source_count,
-        "starforming_source_count": evaluation.starforming_source_count,
-        "topheavy_light_fraction_median": (
-            float(np.median(evaluation.topheavy_light_fraction[positive_light]))
-            if np.any(positive_light)
-            else 0.0
-        ),
-        "popiii_source_fraction": (
-            evaluation.popiii_source_count / evaluation.active_source_count
-            if evaluation.active_source_count > 0
-            else 0.0
-        ),
-        "popiii_source_count": evaluation.popiii_source_count,
-        "active_source_count": evaluation.active_source_count,
-        "popiii_light_fraction_median": (
-            float(np.median(evaluation.popiii_light_fraction[positive_light]))
-            if np.any(positive_light)
-            else 0.0
-        ),
-        "popiii_luminosity_median": float(
-            np.median(evaluation.popiii_uv_luminosity_erg_per_s_hz)
+        **_population_metadata(
+            shared, evaluation, kernels,
+            worker_count=worker_count,
+            topheavy_ssp_metallicity=topheavy_ssp_metallicity,
+            enable_popiii=enable_popiii,
+            popiii_sfr_parameters=popiii_sfr_parameters,
+            mode=mode,
+            imf_transition_parameters=imf_transition_parameters,
         ),
         "metallicity_source": shared.metallicity_source,
         "mah_backend": validate_mah_backend(mah_backend),
@@ -961,46 +1041,6 @@ def run_halo_uv_pipeline(
         },
         "uv_convolution_method": "shared_prepared_batch_final_ssp_observable_v2",
     }
-    return HaloUVPipelineResult(
-        histories=mutable_histories,
-        sfr_tracks=mutable_sfr_tracks,
-        uv_luminosities=np.array(evaluation.uv_luminosity_erg_per_s_hz, copy=True),
-        uv_luminosities_canonical=np.array(
-            evaluation.canonical_uv_luminosity_erg_per_s_hz,
-            copy=True,
-        ),
-        uv_luminosities_topheavy=np.array(
-            evaluation.topheavy_uv_luminosity_erg_per_s_hz,
-            copy=True,
-        ),
-        uv_luminosities_popiii=np.array(
-            evaluation.popiii_uv_luminosity_erg_per_s_hz,
-            copy=True,
-        ),
-        redshift_grid=np.array(shared.redshift_grid, copy=True),
-        floor_mass=np.array(shared.floor_mass_msun, copy=True),
-        active_grid=np.array(shared.active_grid, copy=True),
-        imf_topheavy_source_grid=np.array(evaluation.topheavy_source_grid, copy=True),
-        popiii_source_grid=np.array(shared.popiii_source_grid, copy=True),
-        metadata=metadata,
-        gas_metallicity_zsun_grid=(
-            None
-            if shared.gas_metallicity_zsun_grid is None
-            else np.array(shared.gas_metallicity_zsun_grid, copy=True)
-        ),
-        birth_metallicity_zsun_grid=(
-            None
-            if shared.birth_metallicity_zsun_grid is None
-            else np.array(shared.birth_metallicity_zsun_grid, copy=True)
-        ),
-        metal_mass_grid=(
-            None
-            if shared.metal_mass_msun_grid is None
-            else np.array(shared.metal_mass_msun_grid, copy=True)
-        ),
-        gas_mass_grid=(
-            None
-            if shared.gas_mass_msun_grid is None
-            else np.array(shared.gas_mass_msun_grid, copy=True)
-        ),
+    return _build_compatibility_result(
+        shared, evaluation, mutable_histories, mutable_sfr_tracks, metadata,
     )

@@ -65,10 +65,11 @@ Do not silently switch to the system Python when `.venv/bin/python` is expected.
 If a dependency is missing, fix the project environment deliberately with `uv`
 or report the setup problem.
 
-This branch does not currently define a tracked `pyproject.toml`,
-`requirements.txt`, or `uv.lock`; treat the existing `.venv` as the working
-environment record. If the environment must be rebuilt, document the exact
-packages and versions you installed.
+The tracked `pyproject.toml` and `uv.lock` define the supported Python and exact
+dependency versions. Restore the environment with `uv sync --frozen --all-groups`;
+preserve the scientific dependency pins. Run `.venv/bin/ruff check` and
+`.venv/bin/ruff format --check` for the experiment files listed in the Ruff
+configuration, alongside the relevant regression tests.
 
 ## Data And Outputs
 

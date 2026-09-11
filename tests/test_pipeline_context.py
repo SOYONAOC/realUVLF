@@ -55,10 +55,32 @@ def test_bryan_norman_virial_terms_match_flat_lcdm_formula() -> None:
     np.testing.assert_array_equal(virial_overdensity, expected_overdensity)
 
 
+def _project_python_sources(source_root: Path):
+    """Inspect owned sources without traversing nested virtual environments."""
+    for directory, subdirectories, files in source_root.walk():
+        subdirectories[:] = sorted(
+            name for name in subdirectories
+            if name not in {".venv", ".git", "__pycache__"}
+        )
+        for name in sorted(files):
+            if name.endswith(".py"):
+                yield directory / name
+
+
+def test_science_source_scan_excludes_nested_environment(tmp_path: Path) -> None:
+    owned = tmp_path / "experiment" / "model.py"
+    owned.parent.mkdir()
+    owned.write_text("# owned source\n")
+    dependency = owned.parent / ".venv" / "lib" / "encoded_fixture.py"
+    dependency.parent.mkdir(parents=True)
+    dependency.write_bytes(b"# third-party non-UTF8 fixture: \xa4\xa4\n")
+    assert list(_project_python_sources(tmp_path)) == [owned]
+
+
 def test_repository_science_calls_pass_explicit_cosmology() -> None:
     missing: list[str] = []
     for source_root in (PROJECT_ROOT / "auroralf", PROJECT_ROOT / "scripts"):
-        for path in sorted(source_root.rglob("*.py")):
+        for path in _project_python_sources(source_root):
             tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
             for node in ast.walk(tree):
                 if not isinstance(node, ast.Call):

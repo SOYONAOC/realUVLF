@@ -1,12 +1,5 @@
 # AuroraLF
 
-Numerical opt-in (random-q experiment): `compute_sfr_from_tracks` accepts
-`regular_convolution_backend="direct"` for shared uniform time grids. This uses
-one-dimensional direct convolution with the original causal kernel and trapezoidal
-endpoint weights; the default remains `"dense"`. Nonuniform grids and ambiguous
-lookback/grid coincidences explicitly error in this opt-in backend. No SFR
-parameters or physical windows are changed.
-
 ## v2 typed API
 
 AuroraLF v2 exposes one strict configuration boundary and one in-memory run
@@ -79,6 +72,8 @@ Core code:
 - `auroralf/sfr/`: star-formation model utilities
 - `auroralf/chemistry/`: MZR prior 和 gas-regulator 金属丰度诊断
 - `auroralf/ssp/`: SSP UV convolution utilities
+- `auroralf/experiments/`: opt-in VH15 and random-q calculations, configuration,
+  artifact verification, and release snapshots; independent of production defaults
 - `tests/`: focused regression tests
 
 Workflow code:
@@ -100,6 +95,79 @@ Data and generated files:
 - `nbody/`: N-body experiment notes and launch documentation
 
 Keep external source data under `external_data/`, with large local libraries ignored by git. Use `data_save/` for reusable computed products and `outputs/` for diagnostics.
+
+## VH15 and random-q experiments
+
+VH15 duty occupation and random first-crossing bursts remain separate scientific
+experiments. Their numerical helpers live in `auroralf.experiments`; scripts
+handle CLI, plotting, and scheduling. The old `scripts.experiments.random_q_burst`
+imports remain compatible. Run from the repository root with `PYTHONPATH=.`.
+
+```bash
+PYTHONPATH=. .venv/bin/python scripts/analysis/visbal_duty_uvlf.py --config configs/experiments/visbal_duty.toml
+PYTHONPATH=. .venv/bin/python scripts/analysis/combine_visbal_batches.py --config configs/experiments/visbal_combine.toml
+```
+
+All paths in these TOML files resolve relative to the file. The combination
+configuration explicitly lists complete independent run directories, sampling
+dimensions and the mass window. `--wide` selects `visbal_combine_wide.toml` and
+cannot be combined with `--config`. At least two independent batches are needed
+for this script's batch standard error; random-q analysis still accepts one
+batch and reports its cluster error. Existing outputs are never overwritten.
+Historical manifests and their recorded input hashes remain unchanged.
+
+Random-q submission uses the same snapshot and SHA-256 verification helpers on
+local and remote sites. SSP inputs are taken from the selected science TOML,
+and must reside inside the repository for portable frozen releases. The remote
+host, user, release directory and environment are declared in
+`configs/compute/random_q_cp6.toml`; override with `--site-config` on
+`scripts/submit/submit_random_q.py`. The cp6 placement policy, explicit local
+site choices, and absence of separate queued preflights are preserved.
+
+Numerical opt-in: `compute_sfr_from_tracks` accepts
+`regular_convolution_backend="direct"` for shared uniform time grids, using the
+original causal kernel and trapezoidal endpoint weights. The default is
+`"dense"`. Nonuniform grids and ambiguous lookback/grid coincidences explicitly
+error. Scientific parameters and physical windows are unchanged.
+
+The conditional He II follow-up reads existing random-q event masses and ages:
+
+```bash
+PYTHONPATH=. .venv/bin/python scripts/analysis/analyze_random_q_heii.py --config configs/experiments/heii_random_q.toml
+```
+
+It requires completed, checksum-verified run products and matching logE UV/line
+SSP tables. TOML paths are configuration-relative. Outputs are line luminosity
+functions, integrated flux statistics and source hashes under the declared
+`output`, with vector plots under `figures`. This Case-B Pop III contribution
+does not predict total-galaxy equivalent widths or instrument detectability;
+see [assumptions, results and age-resolution tests](docs/heii-random-q-study.md).
+
+Compare UV-conditioned predictions with GHZ2 and GS-z14-1 using the verified
+parent analysis and source-attributed local observational inputs:
+
+```bash
+PYTHONPATH=. .venv/bin/python scripts/analysis/compare_random_q_heii_observations.py
+```
+
+This writes binned population quantiles and target-window statistics under
+`data_save/heii_observations_20260910/`, plus a vector observation overlay in the
+He II slide assets. Population redshifts remain 12.5 and 14.5; only flux distances
+are evaluated at the observed redshifts. See the [comparison record](docs/heii-observation-comparison.md)
+for this approximation, measurement conventions and remaining likelihood work.
+
+The [Pop III prediction roadmap](docs/popiii-predictions-roadmap.md) records
+the planned He II, PISN, and 21 cm MAP predictions from the shared epsilon=0.03
+random-q model, including current status, dependencies, and observational checks.
+
+Experiment code has pinned Ruff checks; the include list in `pyproject.toml`
+defines the current scope. After `uv sync --frozen --all-groups`, run:
+
+```bash
+.venv/bin/ruff check
+.venv/bin/ruff format --check
+PYTHONPATH=. .venv/bin/python -m pytest tests
+```
 
 ## `auroralf.mah.generate_halo_histories()`
 

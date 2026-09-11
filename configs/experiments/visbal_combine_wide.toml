@@ -1,0 +1,15 @@
+prior = "../../data_save/AUR-EX-0006-R001"
+full_run = "../../data_save/supercomputer_tracks1000_20260907/AUR-EX-0001-R021"
+source_root = "../.."
+output = "../../data_save/visbal_wide_20260908"
+runs = [
+  "../../data_save/visbal-wide-20260908-01/AUR-EX-0006-R014",
+  "../../data_save/visbal-wide-20260908-01/AUR-EX-0006-R015",
+  "../../data_save/visbal-wide-20260908-01/AUR-EX-0006-R016",
+  "../../data_save/visbal-wide-20260908-01/AUR-EX-0006-R017",
+]
+mass_min_ratio = 0.1
+mass_max_ratio = 100.0
+n_mass = 3600
+n_tracks = 1000
+n_grid = 960

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import hashlib
 import importlib.util
-import json
 from pathlib import Path
 import tomllib
 
@@ -31,7 +30,6 @@ dwarf_fraction = importlib.util.module_from_spec(DWARF_SPEC)
 DWARF_SPEC.loader.exec_module(dwarf_fraction)
 
 REPRODUCTION_DIR = SCRIPT_PATH.parent
-ML_NOTEBOOK_PATH = REPRODUCTION_DIR / "ML_REPRODUCTION.ipynb"
 REPRODUCTION_CONFIG_PATH = REPRODUCTION_DIR / "reproduction.toml"
 
 
@@ -84,30 +82,7 @@ def test_paper_gsmf_parameters_give_recomputed_dwarf_mass_fraction() -> None:
     )
 
 
-def test_ml_notebook_is_clean_and_uses_author_feature_order() -> None:
-    notebook = json.loads(ML_NOTEBOOK_PATH.read_text(encoding="utf-8"))
-    code_cells = [
-        cell for cell in notebook["cells"] if cell["cell_type"] == "code"
-    ]
-    assert len(notebook["cells"]) == 25
-    assert len(code_cells) == 15
-    assert all(cell["execution_count"] is None for cell in code_cells)
-    assert all(cell["outputs"] == [] for cell in code_cells)
-
-    for cell in code_cells:
-        compile("".join(cell["source"]), ML_NOTEBOOK_PATH.name, "exec")
-
-    markdown = "\n".join(
-        "".join(cell["source"])
-        for cell in notebook["cells"]
-        if cell["cell_type"] == "markdown"
-    )
-    assert r"\[" not in markdown
-    assert r"\]" not in markdown
-    assert r"\(" not in markdown
-    assert r"\)" not in markdown
-    assert sum(line.strip() == "$$" for line in markdown.splitlines()) == 20
-
+def test_ml_config_uses_author_feature_order_and_metrics() -> None:
     config = tomllib.loads(REPRODUCTION_CONFIG_PATH.read_text(encoding="utf-8"))
     assert config["ml"]["author_feature_order"] == [
         "g-r",

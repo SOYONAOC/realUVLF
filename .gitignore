@@ -49,3 +49,6 @@ external_data/literature_sources/modules/
 external_data/literature_sources/papers/
 external_data/literature_sources/references.bib
 literature/
+
+# Local ML learning notebook; preserve the working copy without tracking outputs.
+/scripts/experiments/arxiv_2608_05531/ML_REPRODUCTION.ipynb

@@ -173,3 +173,35 @@ noisy near-18 (cumulative SE49.6%). No extra batch is automatically submitted.
 The single PNG was visually inspected; observation redshift ranges are labeled;
 no curve smoothing or slides update. All UV-only/pristine-closure limitations
 remain. R028-R031 share this seed and must never be combined as independent runs.
+
+## 2026-09-10: conditional He II follow-up of epsilon=3% random-q bursts
+
+Reused R032 and R024–R027 without new histories/jobs. Matching logE .22/.25
+tables give age-resolved Case-B Pop III line predictions; run products are
+checksum-verified and saved UV luminosities replayed to rtol2e-12.
+The new opt-in experiment is independent of the archived He II SFH implementation.
+See [study and reproduction details](heii-random-q-study.md). Gas response and
+fine-age SSP interpolation remain material uncertainties. Production defaults
+are unchanged; no observational exclusion or detectability claim is made.
+
+## 2026-09-10：登记 He II、PISN 与 21 cm MAP 三项后续预测
+
+用户确认将项目总览中的三探针研究路线登记为后续工作：以当前 εb=0.03
+随机阈值 Pop III 模型为共同基础，在解释 UVLF 后预测 He II、PISN 和
+21 cm MAP，并接受观测检验。
+
+详细状态、待办、依赖和完成标准见
+[三项预测工作记录](popiii-predictions-roadmap.md)。He II 已完成初步 Case-B
+后处理，正式 JWST 对照尚待完成；PISN 需按当前模型重算；21 cm MAP 需
+接入空间晕群、气体和辐射场。旧模型 PISN 结果不能当作当前模型预测。
+三项工作须共享形成历史、IMF 和效率，明确模型与观测不确定性。
+本次仅更新项目记录，未启动新任务或重新计算科学结果。
+
+### 2026-09-10：ε=0.03 的 UV–He II 观测对照
+
+复用 R032、R024–R027，新增 GHZ2 与 GS-z14-1 的条件通量分布和观测叠加图，
+见 [比较记录](heii-observation-comparison.md)及 He II slides 第 14–16 页。
+GHZ2 基准中位数 6.07e−19，测量 (2.7±1.6)e−19；GS-z14-1 基准中位数
+9.20e−20，上限 7e−20。模型真实通量低于对应参考值的比例为 38.0%、44.3%。
+这是邻近红移和有限 UV 窗口的初步对照，未建立噪声/选择似然或给出排除结论。
+年龄插值敏感性仍明显；下一步细化 SSP 并补齐目标红移与观测误差处理。
